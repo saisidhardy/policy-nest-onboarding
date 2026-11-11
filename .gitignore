@@ -12,4 +12,7 @@ node_modules/
 .next/
 frontend/test-results/
 frontend/playwright-report/
+.pgtest/
+.pgdev/
+backend/storage/
 .DS_Store

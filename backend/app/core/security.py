@@ -11,7 +11,7 @@ from app.core.config import get_settings
 
 _hasher = PasswordHasher()
 
-PASSWORD_MIN_LENGTH = 10
+PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
 
 
