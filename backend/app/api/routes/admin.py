@@ -29,6 +29,7 @@ from app.schemas.common import Page
 from app.services import audit
 from app.services.auth import PURPOSE_INVITE, issue_action_token, live_session_filter, revoke_all_sessions
 from app.services.email import get_provider, queue_email
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -290,6 +291,28 @@ def audit_logs(
     return Page(items=[AuditLogOut.model_validate(r) for r in rows], total=total, page=page, page_size=page_size)
 
 
+def _storage_integration() -> IntegrationStatus:
+    s = get_settings()
+    try:
+        st = get_storage().status()
+        mode = "LOCAL_DEVELOPMENT" if st.mode == "LOCAL_DEVELOPMENT" else "LIVE"
+        return IntegrationStatus(
+            key="storage",
+            name="Document storage",
+            status="CONFIGURED" if st.configured else "NOT_CONFIGURED",
+            mode=mode if st.configured else "NONE",
+            detail=st.detail,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return IntegrationStatus(
+            key="storage",
+            name="Document storage",
+            status="DEGRADED" if s.storage_provider == "s3" else "NOT_CONFIGURED",
+            mode="NONE",
+            detail=f"Storage backend unavailable: {type(exc).__name__}",
+        )
+
+
 def _email_integration() -> IntegrationStatus:
     s = get_settings()
     provider = get_provider()
@@ -322,7 +345,7 @@ def system_health(db: DB, _: AuthContext = Depends(require_permission("system:re
             .group_by(EmailDelivery.status)
         ).all()
     )
-    integrations = [_email_integration()] + [
+    integrations = [_email_integration(), _storage_integration()] + [
         IntegrationStatus(
             key=key,
             name=name,

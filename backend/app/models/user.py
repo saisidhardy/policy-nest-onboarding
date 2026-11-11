@@ -58,6 +58,7 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     mobile: Mapped[str | None] = mapped_column(String(16))
+    preferred_language: Mapped[str] = mapped_column(String(8), nullable=False, server_default="EN", default="EN")
     password_hash: Mapped[str | None] = mapped_column(String(255))
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

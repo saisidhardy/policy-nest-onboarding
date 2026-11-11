@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "PolicyNest"
     app_env: Literal["development", "test", "production"] = "development"
-    app_version: str = "0.1.0"
+    app_version: str = "0.2.0"
 
     database_url: str
     secret_key: str = Field(min_length=32)
@@ -42,6 +42,25 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: int = 10
     email_from: str | None = None
 
+    storage_provider: Literal["local", "s3"] = "local"
+    storage_local_dir: str = "./storage"
+    max_upload_size_mb: int = 10
+    s3_endpoint_url: str | None = None
+    s3_bucket: str | None = None
+    s3_region: str = "ap-south-1"
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+
+    redis_url: str | None = None
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, value: str) -> str:
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
     @property
     def origins(self) -> list[str]:
         return [o.strip().rstrip("/") for o in self.allowed_origins.split(",") if o.strip()]
@@ -56,6 +75,14 @@ class Settings(BaseSettings):
     def email_configured(self) -> bool:
         return bool(self.smtp_host and self.email_from)
 
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.max_upload_size_mb * 1024 * 1024
+
+    @property
+    def s3_configured(self) -> bool:
+        return bool(self.s3_bucket and (self.s3_access_key_id and self.s3_secret_access_key))
+
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
         if self.app_env == "production":
@@ -63,6 +90,8 @@ class Settings(BaseSettings):
                 raise ValueError("SECRET_KEY must be a strong random value in production")
             if self.cookie_secure is False:
                 raise ValueError("COOKIE_SECURE cannot be disabled in production")
+            if self.storage_provider == "s3" and not self.s3_bucket:
+                raise ValueError("S3_BUCKET must be configured when STORAGE_PROVIDER=s3 in production")
         return self
 
 

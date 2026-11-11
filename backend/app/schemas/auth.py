@@ -1,10 +1,12 @@
 import re
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 MOBILE_RE = re.compile(r"^[6-9]\d{9}$")
+LanguageCode = Literal["EN", "HI"]
 
 
 def normalize_mobile(value: str | None) -> str | None:
@@ -75,6 +77,7 @@ class ChangePasswordRequest(BaseModel):
 class UpdateProfileRequest(BaseModel):
     full_name: str | None = Field(default=None, max_length=200)
     mobile: str | None = None
+    preferred_language: LanguageCode | None = None
 
     @field_validator("full_name")
     @classmethod
@@ -96,6 +99,7 @@ class UserOut(BaseModel):
     email: str
     full_name: str
     mobile: str | None
+    preferred_language: str
     role: RoleOut
     is_active: bool
     email_verified: bool

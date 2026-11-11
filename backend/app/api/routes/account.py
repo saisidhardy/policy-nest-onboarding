@@ -23,6 +23,13 @@ def update_profile(
     if "mobile" in fields and body.mobile != user.mobile:
         changes["mobile"] = {"changed": True}
         user.mobile = body.mobile
+    if (
+        "preferred_language" in fields
+        and body.preferred_language
+        and body.preferred_language != user.preferred_language
+    ):
+        changes["preferred_language"] = {"from": user.preferred_language, "to": body.preferred_language}
+        user.preferred_language = body.preferred_language
     if changes:
         audit.add(
             db,

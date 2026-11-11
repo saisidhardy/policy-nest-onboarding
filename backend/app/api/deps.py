@@ -112,6 +112,29 @@ def require_permission(*codes: str):
     return dependency
 
 
+def require_any_permission(*codes: str):
+    def dependency(request: Request, auth: CurrentAuth) -> AuthContext:
+        matched = [c for c in codes if c in auth.permissions]
+        if not matched:
+            audit.record_independent(
+                request,
+                "access.denied",
+                audit.DENIED,
+                actor=auth.user,
+                details={"required_any": list(codes), "path": request.url.path, "method": request.method},
+            )
+            raise AppError(403, "FORBIDDEN", "You do not have permission to perform this action.")
+        if (
+            get_settings().require_email_verification
+            and not auth.user.email_verified
+            and all(c not in PERMISSIONS_ALLOWED_UNVERIFIED for c in matched)
+        ):
+            raise AppError(403, "EMAIL_NOT_VERIFIED", "Verify your email address to continue.")
+        return auth
+
+    return dependency
+
+
 def enforce_policy(request: Request, auth: AuthContext, permission: str, resource: Resource) -> None:
     decision = evaluate(auth.subject(), permission, resource)
     if not decision.allowed:

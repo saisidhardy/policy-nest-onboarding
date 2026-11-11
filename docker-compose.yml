@@ -17,6 +17,28 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-policynestminio}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-policynestminio123}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
   mailpit:
     image: axllent/mailpit:latest
     ports:
@@ -29,6 +51,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-policynest}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-policynest}
       TRUST_PROXY_HEADERS: "true"
+      STORAGE_LOCAL_DIR: /app/storage
+    volumes:
+      - backend_storage:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -49,3 +74,5 @@ services:
 
 volumes:
   pgdata:
+  miniodata:
+  backend_storage:

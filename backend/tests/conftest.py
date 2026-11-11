@@ -19,6 +19,7 @@ from alembic.config import Config  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.db import get_engine, get_sessionmaker  # noqa: E402
 from app.services import email as email_service  # noqa: E402
+from app.services import storage as storage_service  # noqa: E402
 
 get_settings.cache_clear()
 
@@ -57,14 +58,18 @@ def migrated_db():
 
 
 @pytest.fixture(autouse=True)
-def clean_tables(migrated_db):
+def clean_tables(migrated_db, tmp_path):
+    storage_service.set_storage_override(storage_service.LocalPrivateStorage(tmp_path / "storage"))
     yield
+    storage_service.set_storage_override(None)
     with get_engine().begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE users, user_sessions, user_action_tokens, email_deliveries, audit_logs RESTART IDENTITY CASCADE"
+                "TRUNCATE users, user_sessions, user_action_tokens, email_deliveries, audit_logs, "
+                "applications, application_documents, application_events, notifications RESTART IDENTITY CASCADE"
             )
         )
+        conn.execute(text("ALTER SEQUENCE app_reference_seq RESTART WITH 260001"))
 
 
 @pytest.fixture
@@ -114,6 +119,12 @@ def register(c: TestClient, email: str = "asha@example.com", name: str = "Asha V
             "accept_terms": True,
         },
     )
+
+
+def verify_user_email(c: TestClient, mailbox: CapturingEmailProvider, email: str = "asha@example.com") -> None:
+    token = mailbox.last_token(email)
+    r = c.post("/api/v1/auth/verify-email", json={"token": token})
+    assert r.status_code == 200, r.text
 
 
 def login(c: TestClient, email: str, password: str = STRONG_PASSWORD):
