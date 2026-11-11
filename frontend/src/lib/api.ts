@@ -49,6 +49,28 @@ export function buildUrl(path: string, query?: Query): string {
   return qs ? `${path}?${qs}` : path;
 }
 
+async function parseResponse<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+  if (!res.ok) {
+    const err = (data as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+    throw new ApiError(
+      res.status,
+      err?.code ?? `HTTP_${res.status}`,
+      err?.message ?? "Something went wrong. Please try again.",
+      err?.details,
+    );
+  }
+  return data as T;
+}
+
 export async function api<T>(
   path: string,
   opts: { method?: string; body?: unknown; query?: Query; signal?: AbortSignal } = {},
@@ -74,23 +96,25 @@ export async function api<T>(
     if ((err as Error).name === "AbortError") throw err;
     throw new ApiError(0, "NETWORK_ERROR", "Cannot reach the PolicyNest server. Check your connection and try again.");
   }
-  const text = await res.text();
-  let data: unknown = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = null;
-    }
+  return parseResponse<T>(res);
+}
+
+export async function apiForm<T>(path: string, formData: FormData, method: "POST" | "PUT" = "POST"): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = readCookie(CSRF_COOKIE);
+  if (token) headers["X-CSRF-Token"] = token;
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, {
+      method,
+      headers,
+      body: formData,
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw err;
+    throw new ApiError(0, "NETWORK_ERROR", "Cannot reach the PolicyNest server. Check your connection and try again.");
   }
-  if (!res.ok) {
-    const err = (data as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
-    throw new ApiError(
-      res.status,
-      err?.code ?? `HTTP_${res.status}`,
-      err?.message ?? "Something went wrong. Please try again.",
-      err?.details,
-    );
-  }
-  return data as T;
+  return parseResponse<T>(res);
 }

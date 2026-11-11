@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PasswordField } from "@/components/PasswordField";
-import { Alert, Badge, Button, Card, CardHeader, Field, Input, PageHeader, Spinner } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { describeUserAgent, formatDateTime } from "@/lib/format";
-import type { Message, SessionInfo } from "@/lib/types";
+import type { LanguageCode, Message, SessionInfo } from "@/lib/types";
 
 export default function AccountPage() {
   return (
     <>
-      <PageHeader title="Account & security" description="Manage your profile, password and signed-in devices." />
+      <PageHeader title="Account & security" description="Manage your profile, language preference, password and signed-in devices." />
       <div className="grid gap-6 lg:grid-cols-2">
         <ProfileCard />
         <PasswordCard />
@@ -27,9 +27,18 @@ function ProfileCard() {
   const { me, refresh } = useAuth();
   const [fullName, setFullName] = useState(me?.user.full_name ?? "");
   const [mobile, setMobile] = useState(me?.user.mobile ?? "");
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(me?.user.preferred_language ?? "EN");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (me) {
+      setFullName(me.user.full_name);
+      setMobile(me.user.mobile ?? "");
+      setPreferredLanguage(me.user.preferred_language ?? "EN");
+    }
+  }, [me]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +46,10 @@ function ProfileCard() {
     setErrors({});
     setStatus(null);
     try {
-      await api("/account/profile", { method: "PATCH", body: { full_name: fullName, mobile } });
+      await api("/account/profile", {
+        method: "PATCH",
+        body: { full_name: fullName, mobile: mobile || null, preferred_language: preferredLanguage },
+      });
       await refresh();
       setStatus({ tone: "success", text: "Profile saved." });
     } catch (err) {
@@ -61,8 +73,18 @@ function ProfileCard() {
         <Field label="Full name" htmlFor="profile-name" error={errors.full_name}>
           <Input id="profile-name" value={fullName} onChange={(e) => setFullName(e.target.value)} invalid={!!errors.full_name} />
         </Field>
-        <Field label="Mobile number" htmlFor="profile-mobile" error={errors.mobile} hint="Leave blank to remove.">
+        <Field label="Mobile number" htmlFor="profile-mobile" error={errors.mobile} hint="10-digit Indian mobile number. Leave blank to remove.">
           <Input id="profile-mobile" type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} invalid={!!errors.mobile} />
+        </Field>
+        <Field label="Preferred notification language" htmlFor="profile-language">
+          <Select
+            id="profile-language"
+            value={preferredLanguage}
+            onChange={(e) => setPreferredLanguage(e.target.value as LanguageCode)}
+          >
+            <option value="EN">English</option>
+            <option value="HI">Hindi (हिन्दी)</option>
+          </Select>
         </Field>
         <Button type="submit" loading={saving}>
           Save profile
@@ -148,11 +170,12 @@ function SessionsCard() {
           {sessions.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm">
               <div>
-                <p className="font-medium text-slate-900">
-                  {describeUserAgent(s.user_agent)} {s.current && <Badge tone="success">This device</Badge>}
-                </p>
-                <p className="text-slate-500">
-                  {s.ip_address ?? "Unknown IP"} · signed in {formatDateTime(s.created_at)} · last active {formatDateTime(s.last_seen_at)}
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-slate-900">{describeUserAgent(s.user_agent)}</p>
+                  {s.current && <Badge tone="success">Current session</Badge>}
+                </div>
+                <p className="mt-0.5 text-slate-500">
+                  IP {s.ip_address ?? "unknown"} · Last active {formatDateTime(s.last_seen_at)} · Expires {formatDateTime(s.expires_at)}
                 </p>
               </div>
               {!s.current && (

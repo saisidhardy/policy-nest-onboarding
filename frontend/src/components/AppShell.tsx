@@ -1,11 +1,27 @@
 "use client";
 
 import clsx from "clsx";
-import { Gauge, KeyRound, LogOut, Menu, ScrollText, Server, ShieldCheck, UserCircle, Users, X } from "lucide-react";
+import {
+  Bell,
+  FileCheck2,
+  FolderKanban,
+  Gauge,
+  KeyRound,
+  LogOut,
+  Menu,
+  ScrollText,
+  Server,
+  ShieldCheck,
+  UserCircle,
+  Users,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import type { NotificationsPage } from "@/lib/types";
 import { Logo } from "./Logo";
 import { Badge } from "./ui";
 import { VerificationBanner } from "./VerificationBanner";
@@ -19,6 +35,9 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Overview", icon: Gauge },
+  { href: "/app/onboarding", label: "Onboarding", icon: FileCheck2, permission: "application:create" },
+  { href: "/app/applications", label: "My applications", icon: FolderKanban, permission: "application:read_own" },
+  { href: "/app/notifications", label: "Notifications", icon: Bell, permission: "profile:read" },
   { href: "/app/account", label: "Account & security", icon: UserCircle, permission: "profile:read" },
   { href: "/app/admin/users", label: "Users", icon: Users, permission: "users:read" },
   { href: "/app/admin/roles", label: "Roles & permissions", icon: KeyRound, permission: "roles:read" },
@@ -35,6 +54,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!me) return;
+    let active = true;
+    api<NotificationsPage>("/notifications", { query: { page_size: 1 } }).then(
+      (res) => {
+        if (active) setUnreadCount(res.unread_count);
+      },
+      () => {
+        /* ignore transient poll error */
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [me, pathname]);
+
   if (!me) return null;
   const items = visibleNav(me.permissions);
 
@@ -47,6 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <nav className="flex flex-1 flex-col gap-1 px-3" aria-label="Main">
       {items.map(({ href, label, icon: Icon }) => {
         const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+        const showBadge = href === "/app/notifications" && unreadCount > 0;
         return (
           <Link
             key={href}
@@ -54,12 +92,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setOpen(false)}
             aria-current={active ? "page" : undefined}
             className={clsx(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+              "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium",
               active ? "bg-brand-50 text-brand-800" : "text-slate-700 hover:bg-slate-100",
             )}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex items-center gap-3">
+              <Icon className="h-4 w-4" />
+              {label}
+            </span>
+            {showBadge && (
+              <span className="rounded-full bg-brand-700 px-2 py-0.5 text-xs font-semibold text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -86,7 +131,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ShieldCheck className="mr-1 h-3 w-3" />
           {me.user.role.name}
         </Badge>
-        <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+        <button
+          onClick={signOut}
+          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        >
           <LogOut className="h-4 w-4" /> Sign out
         </button>
       </div>

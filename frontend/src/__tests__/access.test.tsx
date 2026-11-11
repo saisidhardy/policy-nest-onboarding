@@ -11,13 +11,16 @@ const can = vi.fn();
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ can }) }));
 
 describe("navigation visibility", () => {
-  it("shows admin sections only with the matching permission", () => {
-    const applicant = visibleNav(["profile:read", "profile:update", "application:create"]).map((i) => i.label);
-    expect(applicant).toEqual(["Overview", "Account & security"]);
+  it("shows applicant onboarding items and hides admin sections without admin permissions", () => {
+    const applicant = visibleNav(["profile:read", "profile:update", "application:create", "application:read_own"]).map(
+      (i) => i.label,
+    );
+    expect(applicant).toEqual(["Overview", "Onboarding", "My applications", "Notifications", "Account & security"]);
     const admin = visibleNav(["profile:read", "users:read", "roles:read", "audit:read", "system:read"]).map((i) => i.label);
     expect(admin).toContain("Users");
     expect(admin).toContain("Audit log");
     expect(admin).toContain("System status");
+    expect(admin).not.toContain("Onboarding");
   });
 });
 

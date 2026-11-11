@@ -1,13 +1,16 @@
 "use client";
 
+import { ArrowRight, Bell, CheckCircle2, FileCheck2, FolderKanban, PlayCircle } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Alert, Badge, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
+import { ApplicationStatusBadge } from "@/components/onboarding/ApplicationTracker";
+import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { REQUIRED_DOCUMENTS, WIZARD_STEPS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { AdminStats, Me } from "@/lib/types";
+import type { AdminStats, ApplicationDetail, Me, NotificationsPage } from "@/lib/types";
 import { AuditTable } from "./admin/audit/AuditTable";
 
 export default function OverviewPage() {
@@ -31,8 +34,208 @@ function Overview() {
           Your applicant account is ready. Verify your email to continue.
         </Alert>
       )}
-      {me.user.role.code === "ADMIN" ? <AdminOverview /> : <MemberOverview me={me} />}
+      {me.user.role.code === "ADMIN" ? (
+        <AdminOverview />
+      ) : me.user.role.code === "APPLICANT" ? (
+        <ApplicantDashboard me={me} />
+      ) : (
+        <StaffOverview me={me} />
+      )}
     </>
+  );
+}
+
+function ApplicantDashboard({ me }: { me: Me }) {
+  const router = useRouter();
+  const [app, setApp] = useState<ApplicationDetail | null | undefined>(undefined);
+  const [notifications, setNotifications] = useState<NotificationsPage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    api<NotificationsPage>("/notifications", { query: { page_size: 4 } }).then(setNotifications, () => {});
+    if (!me.user.email_verified) {
+      setApp(null);
+      return;
+    }
+    api<ApplicationDetail | null>("/applications/current").then(setApp, (e) => {
+      setError(e instanceof ApiError ? e.message : "Failed to load your application.");
+      setApp(null);
+    });
+  }, [me.user.email_verified]);
+
+  async function startApplication() {
+    setStarting(true);
+    setError(null);
+    try {
+      const created = await api<ApplicationDetail>("/applications", { method: "POST", body: {} });
+      router.push(`/app/onboarding/${created.id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Unable to start onboarding application.");
+      setStarting(false);
+    }
+  }
+
+  const currentStepTitle = app ? (WIZARD_STEPS.find((s) => s.step === app.current_step)?.title ?? `Step ${app.current_step}`) : "";
+
+  return (
+    <div className="space-y-6">
+      {error && <Alert tone="error">{error}</Alert>}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader
+            title="POSP Onboarding Application"
+            description="Complete your profile sections and upload all 6 statutory documents."
+            action={app ? <ApplicationStatusBadge status={app.status} /> : undefined}
+          />
+          <div className="p-5">
+            {app === undefined ? (
+              <Spinner label="Loading application" />
+            ) : !me.user.email_verified ? (
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>Verify your email address using the link sent to <strong>{me.user.email}</strong> to unlock application creation and document uploads.</p>
+                <p>Meanwhile, you can update your profile and preferred language under Account &amp; security.</p>
+                <Link
+                  href="/app/account"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                >
+                  Manage profile
+                </Link>
+              </div>
+            ) : !app ? (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Start your IRDAI Point of Sales Person (POSP) onboarding application. You can save your progress as a draft at any step and resume anytime.
+                </p>
+                <ul className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                  {REQUIRED_DOCUMENTS.map((doc) => (
+                    <li key={doc.type} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <FileCheck2 className="h-4 w-4 text-brand-700" />
+                      <span>{doc.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button onClick={startApplication} loading={starting}>
+                  <PlayCircle className="h-4 w-4" /> Start POSP application
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Reference ID</p>
+                    <p className="text-lg font-semibold text-slate-900">{app.reference_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Progress</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {app.completeness.completed_sections}/{app.completeness.total_sections} sections ·{" "}
+                      {app.completeness.uploaded_document_count}/{app.completeness.required_document_count} documents
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Last saved</p>
+                    <p className="text-sm text-slate-700">{formatDateTime(app.last_saved_at)}</p>
+                  </div>
+                </div>
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-brand-700 transition-all"
+                    style={{ width: `${Math.round((app.completeness.completed_sections / app.completeness.total_sections) * 100)}%` }}
+                  />
+                </div>
+
+                {app.status === "DRAFT" || app.status === "NEEDS_MORE_INFO" ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-slate-600">
+                      Resume at <strong>Step {app.current_step}: {currentStepTitle}</strong>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/app/applications/${app.id}`}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                      >
+                        <FolderKanban className="h-4 w-4" /> View details &amp; history
+                      </Link>
+                      <Link
+                        href={`/app/onboarding/${app.id}`}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-700 px-4 text-sm font-medium text-white hover:bg-brand-800"
+                      >
+                        Resume application <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Submitted on {formatDateTime(app.submitted_at)}.</span>
+                    </div>
+                    <Link
+                      href={`/app/applications/${app.id}`}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-700 px-4 text-sm font-medium text-white hover:bg-brand-800"
+                    >
+                      Track status &amp; history <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader
+              title="Notifications"
+              action={
+                <Link href="/app/notifications" className="text-xs font-medium text-brand-700 hover:underline">
+                  View all
+                </Link>
+              }
+            />
+            {!notifications ? (
+              <Spinner />
+            ) : notifications.items.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-slate-500">No notifications yet.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {notifications.items.map((n) => (
+                  <li key={n.id} className="px-5 py-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-slate-900">{n.title}</p>
+                      {!n.is_read && <Badge tone="brand">New</Badge>}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{n.body}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Account summary"
+              action={
+                <Link href="/app/account" className="text-xs font-medium text-brand-700 hover:underline">
+                  Edit
+                </Link>
+              }
+            />
+            <dl className="divide-y divide-slate-100 text-xs">
+              <Row label="Email">
+                {me.user.email}{" "}
+                {me.user.email_verified ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Unverified</Badge>}
+              </Row>
+              <Row label="Mobile">{me.user.mobile ?? "Not provided"}</Row>
+              <Row label="Language">{me.user.preferred_language === "HI" ? "Hindi" : "English"}</Row>
+            </dl>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -88,7 +291,14 @@ function AdminOverview() {
           </dl>
         </Card>
         <Card className="lg:col-span-2">
-          <CardHeader title="Recent activity" action={<Link href="/app/admin/audit" className="text-sm font-medium text-brand-700 hover:underline">View audit log</Link>} />
+          <CardHeader
+            title="Recent activity"
+            action={
+              <Link href="/app/admin/audit" className="text-sm font-medium text-brand-700 hover:underline">
+                View audit log
+              </Link>
+            }
+          />
           <AuditTable items={stats.recent_audit} compact />
         </Card>
       </div>
@@ -96,23 +306,19 @@ function AdminOverview() {
   );
 }
 
-const STAGES: Record<string, { title: string; body: string }> = {
-  APPLICANT: {
-    title: "Onboarding application",
-    body: "Document upload, identity, bank and education verification open in the next release. You'll be able to start your application from this page once it is available.",
-  },
+const STAFF_STAGES: Record<string, { title: string; body: string }> = {
   REVIEWER: {
     title: "Review queue",
-    body: "The verification cockpit and review queue open in a later release. Your access scope below determines which applications you will see.",
+    body: "The verification cockpit and review queue open in Phase 5. Your access scope below determines which applications you will see.",
   },
   SENIOR_REVIEWER: {
     title: "Escalations and fraud desk",
-    body: "Escalated cases and fraud-desk referrals open in a later release. Your access scope below determines which applications you will see.",
+    body: "Escalated cases and fraud-desk referrals open in Phase 5. Your access scope below determines which applications you will see.",
   },
 };
 
-function MemberOverview({ me }: { me: Me }) {
-  const stage = STAGES[me.user.role.code];
+function StaffOverview({ me }: { me: Me }) {
+  const stage = STAFF_STAGES[me.user.role.code];
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
@@ -123,12 +329,8 @@ function MemberOverview({ me }: { me: Me }) {
           </Row>
           <Row label="Mobile">{me.user.mobile ?? <span className="text-slate-400">Not provided</span>}</Row>
           <Row label="Role">{me.user.role.name}</Row>
-          {me.user.role.code !== "APPLICANT" && (
-            <>
-              <Row label="Region scope">{me.user.region ?? <span className="text-slate-400">Not assigned</span>}</Row>
-              <Row label="Clearance level">{me.user.clearance_level}</Row>
-            </>
-          )}
+          <Row label="Region scope">{me.user.region ?? <span className="text-slate-400">Not assigned</span>}</Row>
+          <Row label="Clearance level">{me.user.clearance_level}</Row>
           <Row label="Session expires">{formatDateTime(me.session_expires_at)}</Row>
         </dl>
       </Card>
@@ -136,8 +338,11 @@ function MemberOverview({ me }: { me: Me }) {
         <Card>
           <CardHeader title={stage.title} />
           <div className="space-y-3 px-5 py-4 text-sm text-slate-600">
-            <Badge tone="neutral">Not yet available</Badge>
+            <Badge tone="neutral">Scheduled for Phase 5</Badge>
             <p>{stage.body}</p>
+            <Link href="/app/notifications" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
+              <Bell className="h-4 w-4" /> Notifications
+            </Link>
           </div>
         </Card>
       )}
@@ -149,7 +354,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="grid grid-cols-3 gap-4 px-5 py-3">
       <dt className="text-slate-500">{label}</dt>
-      <dd className="col-span-2 flex flex-wrap items-center gap-2 text-slate-900">{children}</dd>
+      <dd className="col-span-2 text-slate-900">{children}</dd>
     </div>
   );
 }
