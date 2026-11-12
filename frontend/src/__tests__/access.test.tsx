@@ -21,6 +21,9 @@ describe("navigation visibility", () => {
     expect(admin).toContain("Audit log");
     expect(admin).toContain("System status");
     expect(admin).not.toContain("Onboarding");
+    expect(admin).not.toContain("Document review");
+    const reviewer = visibleNav(["profile:read", "application:read_any", "application:review"]).map((i) => i.label);
+    expect(reviewer).toContain("Document review");
   });
 });
 

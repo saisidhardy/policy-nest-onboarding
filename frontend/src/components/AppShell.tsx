@@ -37,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Overview", icon: Gauge },
   { href: "/app/onboarding", label: "Onboarding", icon: FileCheck2, permission: "application:create" },
   { href: "/app/applications", label: "My applications", icon: FolderKanban, permission: "application:read_own" },
+  { href: "/app/review", label: "Document review", icon: ShieldCheck, permission: "application:review" },
   { href: "/app/notifications", label: "Notifications", icon: Bell, permission: "profile:read" },
   { href: "/app/account", label: "Account & security", icon: UserCircle, permission: "profile:read" },
   { href: "/app/admin/users", label: "Users", icon: Users, permission: "users:read" },

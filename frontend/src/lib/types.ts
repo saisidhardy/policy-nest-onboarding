@@ -97,7 +97,7 @@ export interface IntegrationStatus {
   key: string;
   name: string;
   status: "CONFIGURED" | "NOT_CONFIGURED" | "DEGRADED";
-  mode: "LIVE" | "LOCAL_DEVELOPMENT" | "NONE";
+  mode: "LIVE" | "LOCAL_DEVELOPMENT" | "SANDBOX" | "NONE";
   detail: string;
 }
 
@@ -294,4 +294,85 @@ export interface NotificationsPage {
   unread_count: number;
   page: number;
   page_size: number;
+}
+
+export interface DocumentExtraction {
+  id: string;
+  document_id: string;
+  doc_type: DocumentType;
+  application_id: string;
+  ocr_engine: string;
+  ai_assistant_provider: string;
+  predicted_doc_type: string | null;
+  classification_confidence: number | null;
+  classification_match: boolean | null;
+  quality_status: string;
+  blur_score: number | null;
+  glare_ratio: number | null;
+  edge_clip_ratio: number | null;
+  face_detected: boolean | null;
+  ocr_confidence: number | null;
+  raw_ocr_text_masked: string | null;
+  extracted_fields: Record<string, string>;
+  missing_fields: string[];
+  ai_explanation: string | null;
+  aadhaar_masked_applied: boolean;
+  has_redacted_image: boolean;
+  reviewer_corrected_fields: Record<string, string> | null;
+  effective_fields: Record<string, string>;
+  corrected_by_user_id: string | null;
+  corrected_at: string | null;
+  processed_at: string;
+}
+
+export interface VerificationCheck {
+  id: string;
+  application_id: string;
+  check_type: string;
+  target_doc_type: string | null;
+  status: string;
+  origin: string;
+  provider_name: string | null;
+  provider_reference: string | null;
+  is_simulated: boolean;
+  confidence: number | null;
+  details: Record<string, unknown>;
+  explanation: string | null;
+  checked_at: string;
+}
+
+export interface FieldCorrection {
+  id: string;
+  extraction_id: string;
+  application_id: string;
+  document_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string;
+  corrected_by_user_id: string | null;
+  created_at: string;
+}
+
+export interface VerificationSummary {
+  documents_processed: number;
+  quality_passed: number;
+  quality_warn: number;
+  quality_failed: number;
+  checks_passed: number;
+  checks_warn: number;
+  checks_needs_info: number;
+  checks_failed: number;
+  checks_not_configured: number;
+  advisory_note: string;
+}
+
+export interface ApplicationVerificationReport {
+  application_id: string;
+  reference_code: string;
+  status: string;
+  extractions: DocumentExtraction[];
+  checks: VerificationCheck[];
+  corrections: FieldCorrection[];
+  summary: VerificationSummary;
 }

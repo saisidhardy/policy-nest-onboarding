@@ -15,7 +15,7 @@ export default function SystemPage() {
 }
 
 function statusBadge(i: IntegrationStatus) {
-  if (i.status === "CONFIGURED") return <Badge tone="success">{i.mode === "LIVE" ? "Live" : "Local development"}</Badge>;
+  if (i.status === "CONFIGURED") return i.mode === "SANDBOX" ? <Badge tone="warning">Sandbox (Simulated)</Badge> : <Badge tone="success">{i.mode === "LIVE" ? "Live" : "Local development"}</Badge>;
   if (i.status === "DEGRADED") return <Badge tone="warning">Degraded</Badge>;
   return <Badge tone="neutral">Not configured</Badge>;
 }

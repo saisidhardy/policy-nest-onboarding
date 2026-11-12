@@ -308,12 +308,12 @@ function AdminOverview() {
 
 const STAFF_STAGES: Record<string, { title: string; body: string }> = {
   REVIEWER: {
-    title: "Review queue",
-    body: "The verification cockpit and review queue open in Phase 5. Your access scope below determines which applications you will see.",
+    title: "Document intelligence desk",
+    body: "Inspect OCR extractions, CV image quality, redacted Aadhaar previews, cross-document checks, and correct extracted fields. Full decision routing arrives in Phase 5.",
   },
   SENIOR_REVIEWER: {
-    title: "Escalations and fraud desk",
-    body: "Escalated cases and fraud-desk referrals open in Phase 5. Your access scope below determines which applications you will see.",
+    title: "Document intelligence & escalations",
+    body: "Inspect regional applications, OCR extractions, redacted Aadhaar copies, and extracted field corrections. Escalation decisions arrive in Phase 5.",
   },
 };
 
@@ -338,11 +338,19 @@ function StaffOverview({ me }: { me: Me }) {
         <Card>
           <CardHeader title={stage.title} />
           <div className="space-y-3 px-5 py-4 text-sm text-slate-600">
-            <Badge tone="neutral">Scheduled for Phase 5</Badge>
+            <Badge tone="brand">Phase 3 Live</Badge>
             <p>{stage.body}</p>
-            <Link href="/app/notifications" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
-              <Bell className="h-4 w-4" /> Notifications
-            </Link>
+            <div className="flex flex-col gap-2 pt-1">
+              <Link
+                href="/app/review"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline"
+              >
+                <FileCheck2 className="h-4 w-4" /> Open document review desk <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link href="/app/notifications" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:underline">
+                <Bell className="h-4 w-4" /> Notifications
+              </Link>
+            </div>
           </div>
         </Card>
       )}

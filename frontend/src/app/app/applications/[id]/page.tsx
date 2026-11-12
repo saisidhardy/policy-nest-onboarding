@@ -7,11 +7,12 @@ import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
+import { VerificationReportPanel } from "@/components/verification/VerificationReportPanel";
 import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { ApplicationDetail, ApplicationDocument } from "@/lib/types";
+import type { ApplicationDetail, ApplicationDocument, ApplicationVerificationReport } from "@/lib/types";
 
 export default function ApplicationDetailPage() {
   return (
@@ -25,14 +26,19 @@ function ApplicationDetailView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [app, setApp] = useState<ApplicationDetail | null>(null);
+  const [verification, setVerification] = useState<ApplicationVerificationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<ApplicationDocument | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const data = await api<ApplicationDetail>(`/applications/${id}`);
+      const [data, ver] = await Promise.all([
+        api<ApplicationDetail>(`/applications/${id}`),
+        api<ApplicationVerificationReport>(`/applications/${id}/verification`).catch(() => null),
+      ]);
       setApp(data);
+      setVerification(ver);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to load application.");
@@ -133,6 +139,15 @@ function ApplicationDetailView() {
             })}
           </ul>
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <VerificationReportPanel
+          report={verification}
+          onReportChange={setVerification}
+          canRunProcessing={app.documents.length > 0 && (app.status === "DRAFT" || app.status === "NEEDS_MORE_INFO" || (verification?.extractions.length ?? 0) === 0)}
+          canCorrectFields={false}
+        />
       </div>
 
       <DocumentPreviewModal applicationId={app.id} document={previewDoc} onClose={() => setPreviewDoc(null)} />

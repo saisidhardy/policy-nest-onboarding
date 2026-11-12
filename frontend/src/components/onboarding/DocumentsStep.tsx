@@ -1,12 +1,17 @@
 "use client";
 
-import { Eye, FileUp, History, Trash2, UploadCloud } from "lucide-react";
+import { Eye, FileUp, History, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader } from "@/components/ui";
 import { api, apiForm, ApiError } from "@/lib/api";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { ApplicationDetail, ApplicationDocument, DocumentType } from "@/lib/types";
+import type {
+  ApplicationDetail,
+  ApplicationDocument,
+  ApplicationVerificationReport,
+  DocumentType,
+} from "@/lib/types";
 import { DocumentPreviewModal } from "./DocumentPreviewModal";
 import { SelfieCameraCapture } from "./SelfieCameraCapture";
 
@@ -27,12 +32,30 @@ export function DocumentsStep({
   const [notice, setNotice] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<ApplicationDocument | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [precheckLoading, setPrecheckLoading] = useState(false);
+  const [precheck, setPrecheck] = useState<ApplicationVerificationReport | null>(null);
 
   const byType = new Map<DocumentType, ApplicationDocument>();
   for (const doc of application.documents) {
     if (doc.is_current) byType.set(doc.doc_type, doc);
   }
   const previousVersions = application.document_history.filter((d) => !d.is_current);
+
+  async function runPrecheck() {
+    setPrecheckLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const report = await api<ApplicationVerificationReport>(`/applications/${application.id}/process`, {
+        method: "POST",
+      });
+      setPrecheck(report);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Failed to run document pre-check.");
+    } finally {
+      setPrecheckLoading(false);
+    }
+  }
 
   async function uploadFile(docType: DocumentType, file: File) {
     setBusyType(docType);
@@ -173,13 +196,39 @@ export function DocumentsStep({
             </div>
           )}
 
+          {precheck && (
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold text-slate-800">
+                  Pre-check summary: {precheck.summary.quality_passed}/{precheck.summary.documents_processed} documents passed quality inspection
+                </p>
+                <span className="text-slate-500">Advisory check only</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {precheck.extractions.map((ext) => (
+                  <div key={ext.id} className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2">
+                    <span className="font-medium text-slate-800">{ext.doc_type}</span>
+                    <Badge tone={ext.quality_status === "OK" ? "success" : "warning"}>{ext.quality_status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-4">
             <Button type="button" variant="secondary" onClick={onBack}>
               Back
             </Button>
-            <Button type="button" onClick={onContinue}>
-              Continue to review
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {byType.size > 0 && (
+                <Button type="button" variant="secondary" loading={precheckLoading} onClick={() => void runPrecheck()}>
+                  <Sparkles className="h-4 w-4" /> Pre-check quality &amp; OCR
+                </Button>
+              )}
+              <Button type="button" onClick={onContinue}>
+                Continue to review
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
