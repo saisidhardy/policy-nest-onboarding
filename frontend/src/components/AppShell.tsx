@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Gauge, KeyRound, LogOut, Menu, ScrollText, Server, ShieldCheck, UserCircle, Users, X } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, FileText, Gauge, KeyRound, LogOut, Menu, ScrollText, Server, ShieldCheck, UserCircle, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -19,6 +19,10 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Overview", icon: Gauge },
+  { href: "/app/application", label: "My application", icon: FileText, permission: "application:read_own" },
+  { href: "/app/training", label: "Training & exam", icon: BookOpenCheck, permission: "application:read_own" },
+  { href: "/app/reviews", label: "Review queue", icon: ClipboardCheck, permission: "application:read_any" },
+  { href: "/app/operations", label: "Operations", icon: BarChart3, permission: "analytics:read" },
   { href: "/app/account", label: "Account & security", icon: UserCircle, permission: "profile:read" },
   { href: "/app/admin/users", label: "Users", icon: Users, permission: "users:read" },
   { href: "/app/admin/roles", label: "Roles & permissions", icon: KeyRound, permission: "roles:read" },

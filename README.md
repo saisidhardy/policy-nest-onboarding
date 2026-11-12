@@ -2,10 +2,12 @@
 
 AI-first POSP (Point of Sales Person) onboarding platform for an insurance intermediary.
 
-This branch contains **Phase 1 – platform foundation**: authentication, sessions, RBAC/ABAC, audit logging,
-admin user management, health checks and the web application shell. Domain features (applications,
-documents, OCR, verification providers, reviewer cockpit) start in Phase 2. The previous prototype is
-kept unchanged in [`legacy/`](legacy/) for reference while its useful pieces are ported.
+This branch contains the **integrated internal-pilot release**: authentication, applications, versioned
+documents, deterministic eligibility checks, explicit verification adapters, reviewer operations,
+training, assessment, certification, analytics, RBAC/ABAC and audit logging. Live regulated providers
+remain disabled until contracted credentials are configured; sandbox records never masquerade as live
+verification. See [`docs/RELEASE_STATUS.md`](docs/RELEASE_STATUS.md) for production gates. The previous
+prototype remains unchanged in [`legacy/`](legacy/) for reference.
 
 | Path | Contents |
 | --- | --- |
