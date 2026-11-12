@@ -38,6 +38,12 @@ def mask_secret_hint(value: str | None) -> str | None:
     return f"••••{value[-4:]}"
 
 
+def _resolve_secret(sec: dict[str, Any], key: str, env_default: str | None) -> str | None:
+    if key in sec:
+        return decrypt_secret(sec.get(key))
+    return env_default
+
+
 @dataclass(frozen=True)
 class EffectiveLmsConfig:
     lms_provider: str
@@ -58,14 +64,34 @@ class EffectiveLmsConfig:
 @dataclass(frozen=True)
 class EffectiveIntegrationsConfig:
     ocr_provider: str
+    ocr_api_base_url: str | None
+    ocr_api_key: str | None
     ai_provider: str
     gemini_model: str
     gemini_api_key: str | None
     ifsc_lookup_enabled: bool
     pan_verification_provider: str
+    pan_api_base_url: str | None
+    pan_api_key: str | None
     bank_verification_provider: str
+    bank_api_base_url: str | None
+    bank_api_key: str | None
     digilocker_provider: str
+    digilocker_base_url: str | None
+    digilocker_client_id: str | None
+    digilocker_client_secret: str | None
     face_match_provider: str
+    face_api_base_url: str | None
+    face_api_key: str | None
+    sms_provider: str
+    sms_api_base_url: str | None
+    sms_api_key: str | None
+    sms_sender_id: str | None
+    sms_timeout_seconds: int
+    sms_max_attempts: int
+    webhook_shared_secret: str | None
+    integration_http_timeout_seconds: int
+    integration_http_max_retries: int
     source: str
 
 
@@ -91,13 +117,11 @@ def get_effective_lms_config(db: Session | None = None, s: Settings | None = Non
     row = _row(db, "lms")
     cfg = row.config_json if row else {}
     sec = row.secrets_encrypted if row else {}
-    api_key = decrypt_secret(sec.get("lms_api_key")) if "lms_api_key" in sec else s.lms_api_key
-    wh_sec = decrypt_secret(sec.get("lms_webhook_secret")) if "lms_webhook_secret" in sec else s.lms_webhook_secret
     return EffectiveLmsConfig(
         lms_provider=cfg.get("lms_provider", s.lms_provider),
         lms_api_base_url=cfg.get("lms_api_base_url", s.lms_api_base_url),
-        lms_api_key=api_key,
-        lms_webhook_secret=wh_sec,
+        lms_api_key=_resolve_secret(sec, "lms_api_key", s.lms_api_key),
+        lms_webhook_secret=_resolve_secret(sec, "lms_webhook_secret", s.lms_webhook_secret),
         lms_timeout_seconds=int(cfg.get("lms_timeout_seconds", s.lms_timeout_seconds)),
         lms_course_code=str(cfg.get("lms_course_code", s.lms_course_code)),
         lms_required_hours=float(cfg.get("lms_required_hours", s.lms_required_hours)),
@@ -117,17 +141,38 @@ def get_effective_integrations_config(
     row = _row(db, "integrations")
     cfg = row.config_json if row else {}
     sec = row.secrets_encrypted if row else {}
-    gem_key = decrypt_secret(sec.get("gemini_api_key")) if "gemini_api_key" in sec else s.gemini_api_key
     return EffectiveIntegrationsConfig(
         ocr_provider=cfg.get("ocr_provider", s.ocr_provider),
+        ocr_api_base_url=cfg.get("ocr_api_base_url", s.ocr_api_base_url),
+        ocr_api_key=_resolve_secret(sec, "ocr_api_key", s.ocr_api_key),
         ai_provider=cfg.get("ai_provider", s.ai_provider),
         gemini_model=cfg.get("gemini_model", s.gemini_model),
-        gemini_api_key=gem_key,
+        gemini_api_key=_resolve_secret(sec, "gemini_api_key", s.gemini_api_key),
         ifsc_lookup_enabled=bool(cfg.get("ifsc_lookup_enabled", s.ifsc_lookup_enabled)),
         pan_verification_provider=cfg.get("pan_verification_provider", s.pan_verification_provider),
+        pan_api_base_url=cfg.get("pan_api_base_url", s.pan_api_base_url),
+        pan_api_key=_resolve_secret(sec, "pan_api_key", s.pan_api_key),
         bank_verification_provider=cfg.get("bank_verification_provider", s.bank_verification_provider),
+        bank_api_base_url=cfg.get("bank_api_base_url", s.bank_api_base_url),
+        bank_api_key=_resolve_secret(sec, "bank_api_key", s.bank_api_key),
         digilocker_provider=cfg.get("digilocker_provider", s.digilocker_provider),
+        digilocker_base_url=cfg.get("digilocker_base_url", s.digilocker_base_url),
+        digilocker_client_id=cfg.get("digilocker_client_id", s.digilocker_client_id),
+        digilocker_client_secret=_resolve_secret(sec, "digilocker_client_secret", s.digilocker_client_secret),
         face_match_provider=cfg.get("face_match_provider", s.face_match_provider),
+        face_api_base_url=cfg.get("face_api_base_url", s.face_api_base_url),
+        face_api_key=_resolve_secret(sec, "face_api_key", s.face_api_key),
+        sms_provider=cfg.get("sms_provider", s.sms_provider),
+        sms_api_base_url=cfg.get("sms_api_base_url", s.sms_api_base_url),
+        sms_api_key=_resolve_secret(sec, "sms_api_key", s.sms_api_key),
+        sms_sender_id=cfg.get("sms_sender_id", s.sms_sender_id),
+        sms_timeout_seconds=int(cfg.get("sms_timeout_seconds", s.sms_timeout_seconds)),
+        sms_max_attempts=int(cfg.get("sms_max_attempts", s.sms_max_attempts)),
+        webhook_shared_secret=_resolve_secret(sec, "webhook_shared_secret", s.webhook_shared_secret),
+        integration_http_timeout_seconds=int(
+            cfg.get("integration_http_timeout_seconds", s.integration_http_timeout_seconds)
+        ),
+        integration_http_max_retries=int(cfg.get("integration_http_max_retries", s.integration_http_max_retries)),
         source="database" if row is not None else "environment",
     )
 
@@ -168,13 +213,8 @@ def upsert_section(
     merged_secrets = dict(row.secrets_encrypted or {})
     touched_secrets: list[str] = []
     for sk in clear_secrets or []:
-        if sk in merged_secrets:
-            merged_secrets.pop(sk, None)
-            touched_secrets.append(f"{sk}(cleared)")
-        else:
-            # Explicitly store None marker so a DB override clears any env secret too
-            merged_secrets[sk] = None
-            touched_secrets.append(f"{sk}(cleared)")
+        merged_secrets[sk] = None
+        touched_secrets.append(f"{sk}(cleared)")
     for sk, sv in (secret_updates or {}).items():
         if sv is not None and sv.strip():
             merged_secrets[sk] = encrypt_secret(sv.strip())

@@ -16,7 +16,7 @@ def test_readiness_reports_current_migration(client):
     r = client.get("/health/ready")
     assert r.status_code == 200
     db = r.json()["database"]
-    assert db["connected"] and db["migrations_current"] and db["migration"] == "0007_phase7_admin_config"
+    assert db["connected"] and db["migrations_current"] and db["migration"] == "0008_phase8_integrations"
 
 
 def test_seeded_roles_match_catalog():

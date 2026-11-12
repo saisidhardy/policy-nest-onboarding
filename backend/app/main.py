@@ -16,6 +16,7 @@ from app.api.routes import (
     rules,
     training,
     verifications,
+    webhooks,
 )
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
         rules,
         review,
         training,
+        webhooks,
     ):
         app.include_router(module.router, prefix="/api/v1")
     return app

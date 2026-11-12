@@ -3,6 +3,7 @@ from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.config_store import SystemConfig
 from app.models.email import EmailDelivery
+from app.models.integration_events import IntegrationProbeResult, SmsDelivery, WebhookDelivery
 from app.models.notification import Notification
 from app.models.rules import ApplicationAppeal, ApplicationDecision, RuleExecution, RuleSet
 from app.models.training import LmsSyncLog, TrainingRecord
@@ -20,17 +21,20 @@ __all__ = [
     "DocumentExtraction",
     "DocumentFieldCorrection",
     "EmailDelivery",
+    "IntegrationProbeResult",
     "LmsSyncLog",
     "Notification",
     "Permission",
     "Role",
     "RuleExecution",
     "RuleSet",
+    "SmsDelivery",
     "SystemConfig",
     "TrainingRecord",
     "User",
     "UserActionToken",
     "UserSession",
     "VerificationCheck",
+    "WebhookDelivery",
     "role_permissions",
 ]

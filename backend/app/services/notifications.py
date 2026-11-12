@@ -3,8 +3,20 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.models import Notification
+from app.models import Application, Notification, User
 from app.models.base import utcnow
+from app.services.platform_config import get_effective_integrations_config
+from app.services.sms import send_sms_notification
+
+SMS_MILESTONE_CATEGORIES = {
+    "APPLICATION_SUBMITTED",
+    "SUBMISSION",
+    "DECISION",
+    "REWORK",
+    "APPEAL",
+    "TRAINING",
+    "CERTIFICATION",
+}
 
 
 def create_notification(
@@ -28,6 +40,27 @@ def create_notification(
     )
     db.add(note)
     db.flush()
+
+    if category.upper() in SMS_MILESTONE_CATEGORIES or application_id is not None:
+        cfg = get_effective_integrations_config(db)
+        if cfg.sms_provider != "not_configured":
+            mobile: str | None = None
+            if application_id is not None:
+                app_row = db.get(Application, application_id)
+                mobile = app_row.mobile if app_row and app_row.mobile else None
+            if not mobile:
+                user_row = db.get(User, user_id)
+                mobile = user_row.mobile if user_row else None
+            if mobile:
+                send_sms_notification(
+                    db,
+                    mobile=mobile,
+                    event_type=category,
+                    message=f"PolicyNest: {title} - {body}",
+                    user_id=user_id,
+                    application_id=application_id,
+                )
+
     return note
 
 

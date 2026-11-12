@@ -2,18 +2,18 @@
 
 AI-first POSP (Point of Sales Person) onboarding platform for an insurance intermediary.
 
-This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, **Phase 4 (Rules Engine & Decision Management)**, **Phase 5 (Reviewer & Operations Portal)**, **Phase 6 (Training & Certification)**, and **Phase 7 (Administrator Portal)**:
+This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, **Phase 4 (Rules Engine & Decision Management)**, **Phase 5 (Reviewer & Operations Portal)**, **Phase 6 (Training & Certification)**, **Phase 7 (Administrator Portal)**, and **Phase 8 (Integration Completion & Production Hardening)**:
 authentication, sessions, RBAC/ABAC, audit logging, admin user management, applicant onboarding wizard,
 private document upload/retrieval, tracking, application history, notifications, OpenCV image quality checks,
-local Tesseract OCR / PyPDF extraction, Aadhaar text masking and image redaction, 8-tier Indian name matching,
-cross-document consistency checks, external verification adapters, reviewer extracted-field corrections, versioned
+local Tesseract OCR / external HTTP OCR / PyPDF extraction, Aadhaar text masking and image redaction, 8-tier Indian name matching,
+cross-document consistency checks, external verification adapters (with bounded HTTP retries, timeouts, and honest provenance), reviewer extracted-field corrections, versioned
 deterministic PS-01 v3.2.0 policy rules (`RuleSet`, `RuleExecution`, consolidated EN/HI rework, non-auto-reject
 `NAME_MISMATCH` guardrail, reviewer override controls), separated Correction / Reapplication / Appeal flows,
 ABAC-scoped reviewer queues, claim/assignment, side-by-side baseline vs OCR field comparison, Fraud Desk
 escalation/resolution, review history, operational analytics, IRDAI 15-hour LMS training sync & POSP certification,
-and Administrator operational oversight (dashboard, reviewer workload reassignment, global application assignment,
-role permission customization, and Fernet-encrypted database configuration management).
-Live commercial KYC/banking/biometric vendor transactions and production hardening follow in Phases 8–9. The original
+Administrator operational oversight (dashboard, reviewer workload reassignment, global application assignment,
+role permission customization, Fernet-encrypted database configuration management), SMS gateway dispatch & retries, signed inbound verification/LMS webhooks with idempotency, and active integration health probing.
+Final deployment hardening, backup runbooks, and full-lifecycle validation follow in Phase 9. The original
 single-file prototype is kept unchanged in [`legacy/`](legacy/).
 
 | Path | Contents |
@@ -27,6 +27,7 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 | `docs/PHASE5.md` | Phase 5 reviewer queue, claim/assign, field comparison, Fraud Desk, history and analytics |
 | `docs/PHASE6.md` | Phase 6 LMS training eligibility, adapter boundary, progress/exam sync, retries and POSP certification |
 | `docs/PHASE7.md` | Phase 7 Administrator dashboard, reviewer workloads, application assignment, RBAC customization, config store |
+| `docs/PHASE8.md` | Phase 8 External HTTP adapters, retries/timeouts, SMS gateway, signed webhooks, and active health probing |
 | `docs/phase0/` | Audit, requirements and architecture plan |
 | `docs/source_materials/` | Business source package (rulebook, regulatory matrix, specs, datasets) |
 | `legacy/` | Original single-file prototype and SQLite backend |

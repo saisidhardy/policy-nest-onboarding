@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.services.platform_config import get_effective_integrations_config
 
 
 class _GeminiDocAssistSchema(BaseModel):
@@ -142,8 +143,8 @@ class GeminiAIAssistant:
             )
 
 
-def get_ai_assistant() -> AIAssistant:
-    s = get_settings()
+def get_ai_assistant(db: Session | None = None) -> AIAssistant:
+    s = get_effective_integrations_config(db)
     if s.ai_provider == "gemini" and s.gemini_api_key:
         return GeminiAIAssistant(api_key=s.gemini_api_key, model=s.gemini_model)
     return LocalHeuristicAIAssistant()

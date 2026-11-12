@@ -205,13 +205,14 @@ def test_external_provider_adapters_distinguish_origins_and_block_sandbox_in_pro
     # Mock public IFSC lookup
     class DummyResp:
         status_code = 200
+        content = b"{}"
 
         def json(self):
             return {"BANK": "HDFC Bank", "BRANCH": "INDIRANAGAR", "CITY": "BENGALURU", "STATE": "KARNATAKA"}
 
     monkeypatch.setenv("IFSC_LOOKUP_ENABLED", "true")
     get_settings.cache_clear()
-    monkeypatch.setattr("app.services.verification_providers.httpx.get", lambda url, timeout: DummyResp())
+    monkeypatch.setattr("app.services.http_client.httpx.request", lambda method, url, **kwargs: DummyResp())
     ifsc_res = lookup_ifsc_directory("HDFC0000240")
     assert ifsc_res.status == "PASSED"
     assert ifsc_res.origin == "PUBLIC_DIRECTORY"

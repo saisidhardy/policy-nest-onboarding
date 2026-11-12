@@ -28,7 +28,9 @@ from app.schemas.admin import (
     AdminAssignReviewerRequest,
     AdminConfigBundleOut,
     AdminDashboardOut,
+    IntegrationProbeOut,
     IntegrationsConfigOut,
+    IntegrationsMonitorOut,
     IntegrationStatus,
     LmsConfigOut,
     PlatformConfigOut,
@@ -36,14 +38,13 @@ from app.schemas.admin import (
     ReassignWorkloadRequest,
     ReviewerWorkloadOut,
     RoleDetailOut,
+    SmsRetryOut,
     UpdateIntegrationsConfigRequest,
     UpdateLmsConfigRequest,
     UpdatePlatformConfigRequest,
     UpdateRolePermissionsRequest,
 )
-from app.services import audit, platform_config
-from app.services.lms_adapter import get_lms_integration_status
-from app.services.verification_providers import get_verification_integration_statuses
+from app.services import audit, integration_health, platform_config, sms
 
 ACTIVE_QUEUE_STATUSES = ("SUBMITTED", "IN_REVIEW", "NEEDS_MORE_INFO", "REWORK_SUBMITTED")
 ADMIN_FORBIDDEN_DECISION_PERMS = {
@@ -65,20 +66,9 @@ ADMIN_CORE_PERMS = {
 
 
 def _collect_integrations(db: Session) -> list[IntegrationStatus]:
-    lms_st = get_lms_integration_status(db)
-    return (
-        [_email_integration(), _storage_integration()]
-        + [IntegrationStatus(**st) for st in get_verification_integration_statuses(db)]
-        + [
-            IntegrationStatus(
-                key=lms_st["key"],
-                name=lms_st["name"],
-                status=lms_st["status"],
-                mode=lms_st["mode"],
-                detail=lms_st["detail"],
-            )
-        ]
-    )
+    return [_email_integration(), _storage_integration()] + [
+        IntegrationStatus(**st) for st in integration_health.collect_all_integration_statuses(db)
+    ]
 
 
 def get_admin_dashboard(db: Session) -> AdminDashboardOut:
@@ -572,15 +562,42 @@ def _build_integrations_out(db: Session) -> IntegrationsConfigOut:
     row = db.get(SystemConfig, "integrations")
     return IntegrationsConfigOut(
         ocr_provider=eff.ocr_provider,
+        ocr_api_base_url=eff.ocr_api_base_url,
+        has_ocr_api_key=bool(eff.ocr_api_key),
+        ocr_api_key_hint=platform_config.mask_secret_hint(eff.ocr_api_key),
         ai_provider=eff.ai_provider,
         gemini_model=eff.gemini_model,
         has_gemini_api_key=bool(eff.gemini_api_key),
         gemini_api_key_hint=platform_config.mask_secret_hint(eff.gemini_api_key),
         ifsc_lookup_enabled=eff.ifsc_lookup_enabled,
         pan_verification_provider=eff.pan_verification_provider,
+        pan_api_base_url=eff.pan_api_base_url,
+        has_pan_api_key=bool(eff.pan_api_key),
+        pan_api_key_hint=platform_config.mask_secret_hint(eff.pan_api_key),
         bank_verification_provider=eff.bank_verification_provider,
+        bank_api_base_url=eff.bank_api_base_url,
+        has_bank_api_key=bool(eff.bank_api_key),
+        bank_api_key_hint=platform_config.mask_secret_hint(eff.bank_api_key),
         digilocker_provider=eff.digilocker_provider,
+        digilocker_base_url=eff.digilocker_base_url,
+        digilocker_client_id=eff.digilocker_client_id,
+        has_digilocker_client_secret=bool(eff.digilocker_client_secret),
+        digilocker_client_secret_hint=platform_config.mask_secret_hint(eff.digilocker_client_secret),
         face_match_provider=eff.face_match_provider,
+        face_api_base_url=eff.face_api_base_url,
+        has_face_api_key=bool(eff.face_api_key),
+        face_api_key_hint=platform_config.mask_secret_hint(eff.face_api_key),
+        sms_provider=eff.sms_provider,
+        sms_api_base_url=eff.sms_api_base_url,
+        sms_sender_id=eff.sms_sender_id,
+        sms_timeout_seconds=eff.sms_timeout_seconds,
+        sms_max_attempts=eff.sms_max_attempts,
+        has_sms_api_key=bool(eff.sms_api_key),
+        sms_api_key_hint=platform_config.mask_secret_hint(eff.sms_api_key),
+        has_webhook_shared_secret=bool(eff.webhook_shared_secret),
+        webhook_shared_secret_hint=platform_config.mask_secret_hint(eff.webhook_shared_secret),
+        integration_http_timeout_seconds=eff.integration_http_timeout_seconds,
+        integration_http_max_retries=eff.integration_http_max_retries,
         source=eff.source,
         updated_at=row.updated_at if row else None,
     )
@@ -663,6 +680,21 @@ def update_lms_config(db: Session, request: Request, body: UpdateLmsConfigReques
     return _build_lms_out(db)
 
 
+def _clean_optional_url(raw: str | None, field_name: str) -> str | None:
+    if raw is None:
+        return None
+    val = raw.strip().rstrip("/")
+    if not val:
+        return None
+    if not (val.startswith("http://") or val.startswith("https://")):
+        raise AppError(
+            status_code=400,
+            code="INVALID_URL",
+            message=f"{field_name} must start with http:// or https://",
+        )
+    return val
+
+
 def update_integrations_config(
     db: Session, request: Request, body: UpdateIntegrationsConfigRequest, actor: User
 ) -> IntegrationsConfigOut:
@@ -672,23 +704,59 @@ def update_integrations_config(
             "bank_verification_provider": body.bank_verification_provider,
             "digilocker_provider": body.digilocker_provider,
             "face_match_provider": body.face_match_provider,
+            "sms_provider": body.sms_provider,
         }
     )
-    clear_keys = ["gemini_api_key"] if body.clear_gemini_api_key else []
+    clear_keys = [
+        key
+        for key, flag in (
+            ("ocr_api_key", body.clear_ocr_api_key),
+            ("gemini_api_key", body.clear_gemini_api_key),
+            ("pan_api_key", body.clear_pan_api_key),
+            ("bank_api_key", body.clear_bank_api_key),
+            ("digilocker_client_secret", body.clear_digilocker_client_secret),
+            ("face_api_key", body.clear_face_api_key),
+            ("sms_api_key", body.clear_sms_api_key),
+            ("webhook_shared_secret", body.clear_webhook_shared_secret),
+        )
+        if flag
+    ]
     _, touched_secrets = platform_config.upsert_section(
         db,
         "integrations",
         {
             "ocr_provider": body.ocr_provider,
+            "ocr_api_base_url": _clean_optional_url(body.ocr_api_base_url, "ocr_api_base_url"),
             "ai_provider": body.ai_provider,
             "gemini_model": body.gemini_model.strip(),
             "ifsc_lookup_enabled": body.ifsc_lookup_enabled,
             "pan_verification_provider": body.pan_verification_provider,
+            "pan_api_base_url": _clean_optional_url(body.pan_api_base_url, "pan_api_base_url"),
             "bank_verification_provider": body.bank_verification_provider,
+            "bank_api_base_url": _clean_optional_url(body.bank_api_base_url, "bank_api_base_url"),
             "digilocker_provider": body.digilocker_provider,
+            "digilocker_base_url": _clean_optional_url(body.digilocker_base_url, "digilocker_base_url"),
+            "digilocker_client_id": (body.digilocker_client_id or "").strip() or None,
             "face_match_provider": body.face_match_provider,
+            "face_api_base_url": _clean_optional_url(body.face_api_base_url, "face_api_base_url"),
+            "sms_provider": body.sms_provider,
+            "sms_api_base_url": _clean_optional_url(body.sms_api_base_url, "sms_api_base_url"),
+            "sms_sender_id": (body.sms_sender_id or "").strip() or None,
+            "sms_timeout_seconds": body.sms_timeout_seconds,
+            "sms_max_attempts": body.sms_max_attempts,
+            "integration_http_timeout_seconds": body.integration_http_timeout_seconds,
+            "integration_http_max_retries": body.integration_http_max_retries,
         },
-        secret_updates={"gemini_api_key": body.gemini_api_key},
+        secret_updates={
+            "ocr_api_key": body.ocr_api_key,
+            "gemini_api_key": body.gemini_api_key,
+            "pan_api_key": body.pan_api_key,
+            "bank_api_key": body.bank_api_key,
+            "digilocker_client_secret": body.digilocker_client_secret,
+            "face_api_key": body.face_api_key,
+            "sms_api_key": body.sms_api_key,
+            "webhook_shared_secret": body.webhook_shared_secret,
+        },
         clear_secrets=clear_keys,
         actor=actor,
     )
@@ -706,6 +774,7 @@ def update_integrations_config(
             "bank_verification_provider": body.bank_verification_provider,
             "digilocker_provider": body.digilocker_provider,
             "face_match_provider": body.face_match_provider,
+            "sms_provider": body.sms_provider,
             "secrets_modified": touched_secrets,
         },
     )
@@ -770,3 +839,29 @@ def reset_config_section(db: Session, request: Request, *, section: str, actor: 
     )
     db.commit()
     return get_config_bundle(db)
+
+
+def probe_integrations_action(
+    db: Session, request: Request, *, actor: User, target_key: str | None = None
+) -> list[IntegrationProbeOut]:
+    rows = integration_health.probe_integrations(db, request, actor=actor, target_key=target_key)
+    return [IntegrationProbeOut.model_validate(row) for row in rows]
+
+
+def get_integrations_monitor_action(db: Session) -> IntegrationsMonitorOut:
+    data = integration_health.get_integrations_monitor(db)
+    return IntegrationsMonitorOut.model_validate(data)
+
+
+def retry_failed_sms_action(db: Session, request: Request, *, actor: User) -> SmsRetryOut:
+    result = sms.retry_failed_sms(db, limit=20)
+    audit.add(
+        db,
+        request,
+        "admin.integrations.sms_retried",
+        actor=actor,
+        resource_type="sms_deliveries",
+        details=result,
+    )
+    db.commit()
+    return SmsRetryOut(**result)

@@ -1,6 +1,7 @@
 import logging
 import smtplib
 import ssl
+import time
 import uuid
 from dataclasses import dataclass
 from email.message import EmailMessage as MimeMessage
@@ -14,6 +15,7 @@ from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.models import EmailDelivery, User
 from app.models.base import utcnow
+from app.services.platform_config import get_effective_platform_config
 
 log = logging.getLogger("policynest.email")
 
@@ -100,9 +102,9 @@ def _layout(title: str, intro: str, cta_label: str, url: str, footer: str) -> tu
     return text, html
 
 
-def build_email(template: str, user: User, token: str) -> OutgoingEmail:
+def build_email(template: str, user: User, token: str, db: Session | None = None) -> OutgoingEmail:
     s = get_settings()
-    base = s.public_app_url.rstrip("/")
+    base = get_effective_platform_config(db, s).public_app_url.rstrip("/")
     if template == "verify_email":
         subject = "Verify your PolicyNest email address"
         url = f"{base}/verify-email?token={token}"
@@ -140,9 +142,9 @@ def build_email(template: str, user: User, token: str) -> OutgoingEmail:
 
 
 def queue_email(db: Session, background: BackgroundTasks, user: User, template: str, token: str) -> str:
-    """Create a delivery record and dispatch after the response. Returns the initial delivery status."""
+    """Create a delivery record and dispatch with retry after response. Returns initial status."""
     provider = get_provider()
-    message = build_email(template, user, token)
+    message = build_email(template, user, token, db=db)
     delivery = EmailDelivery(
         id=uuid.uuid4(),
         user_id=user.id,
@@ -151,6 +153,8 @@ def queue_email(db: Session, background: BackgroundTasks, user: User, template: 
         subject=message.subject,
         provider=provider.name,
         status=STATUS_QUEUED if provider.configured else STATUS_NOT_CONFIGURED,
+        attempts=0,
+        last_attempt_at=None,
         error=None if provider.configured else "No email provider configured (set SMTP_HOST and EMAIL_FROM).",
     )
     db.add(delivery)
@@ -161,18 +165,40 @@ def queue_email(db: Session, background: BackgroundTasks, user: User, template: 
     return delivery.status
 
 
+def deliver_with_retry(
+    provider: EmailProvider, message: OutgoingEmail, max_attempts: int = 3
+) -> tuple[str, int, str | None]:
+    """Attempt outbound email delivery up to max_attempts cleanly for transient SMTP failures."""
+    attempts = 0
+    last_error: str | None = None
+    max_try = max(1, max_attempts)
+    for attempt in range(1, max_try + 1):
+        attempts = attempt
+        try:
+            provider.send(message)
+            return STATUS_SENT, attempts, None
+        except (smtplib.SMTPException, TimeoutError, OSError) as exc:
+            last_error = f"{type(exc).__name__}: {exc}"[:1000]
+            if attempt < max_try:
+                time.sleep(0.1 * attempt)
+        except Exception as exc:  # noqa: BLE001
+            last_error = f"{type(exc).__name__}: {exc}"[:1000]
+            break
+    return STATUS_FAILED, attempts, last_error
+
+
 def _deliver(delivery_id: uuid.UUID, message: OutgoingEmail) -> None:
+    s = get_settings()
     provider = get_provider()
-    status, error = STATUS_SENT, None
-    try:
-        provider.send(message)
-    except Exception as exc:  # noqa: BLE001 - any provider failure is recorded, not raised
-        status, error = STATUS_FAILED, f"{type(exc).__name__}: {exc}"[:1000]
-        log.error("Email delivery %s failed: %s", delivery_id, error)
+    status, attempts, error = deliver_with_retry(provider, message, max_attempts=s.email_max_attempts)
+    if status != STATUS_SENT:
+        log.error("Email delivery %s failed after %d attempt(s): %s", delivery_id, attempts, error)
     with get_sessionmaker()() as db:
         delivery = db.get(EmailDelivery, delivery_id)
         if delivery:
             delivery.status = status
+            delivery.attempts = attempts
+            delivery.last_attempt_at = utcnow()
             delivery.error = error
             delivery.sent_at = utcnow() if status == STATUS_SENT else None
             db.commit()

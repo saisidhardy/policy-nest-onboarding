@@ -821,18 +821,108 @@ export interface LmsConfig {
 }
 
 export interface IntegrationsConfig {
-  ocr_provider: "local_tesseract" | "none" | string;
+  ocr_provider: "local_tesseract" | "http_ocr" | "none" | string;
+  ocr_api_base_url: string | null;
+  has_ocr_api_key: boolean;
+  ocr_api_key_hint: string | null;
   ai_provider: "local_heuristic" | "gemini" | string;
   gemini_model: string;
   has_gemini_api_key: boolean;
   gemini_api_key_hint: string | null;
   ifsc_lookup_enabled: boolean;
   pan_verification_provider: string;
+  pan_api_base_url: string | null;
+  has_pan_api_key: boolean;
+  pan_api_key_hint: string | null;
   bank_verification_provider: string;
+  bank_api_base_url: string | null;
+  has_bank_api_key: boolean;
+  bank_api_key_hint: string | null;
   digilocker_provider: string;
+  digilocker_base_url: string | null;
+  digilocker_client_id: string | null;
+  has_digilocker_client_secret: boolean;
+  digilocker_client_secret_hint: string | null;
   face_match_provider: string;
+  face_api_base_url: string | null;
+  has_face_api_key: boolean;
+  face_api_key_hint: string | null;
+  sms_provider: string;
+  sms_api_base_url: string | null;
+  sms_sender_id: string | null;
+  sms_timeout_seconds: number;
+  sms_max_attempts: number;
+  has_sms_api_key: boolean;
+  sms_api_key_hint: string | null;
+  has_webhook_shared_secret: boolean;
+  webhook_shared_secret_hint: string | null;
+  integration_http_timeout_seconds: number;
+  integration_http_max_retries: number;
   source: "database" | "environment" | string;
   updated_at: string | null;
+}
+
+export interface IntegrationProbe {
+  adapter_key: string;
+  status: string;
+  mode: string;
+  latency_ms: number | null;
+  http_status: number | null;
+  detail: string;
+  checked_at: string;
+}
+
+export interface EmailDeliveryMonitor {
+  id: string;
+  recipient: string;
+  template: string;
+  subject: string;
+  status: string;
+  provider: string;
+  attempts: number;
+  error: string | null;
+  created_at: string;
+  sent_at: string | null;
+}
+
+export interface SmsDeliveryMonitor {
+  id: string;
+  application_id: string | null;
+  recipient_mobile: string;
+  event_type: string;
+  provider: string;
+  status: string;
+  is_simulated: boolean;
+  provider_message_id: string | null;
+  attempts: number;
+  error: string | null;
+  created_at: string;
+  sent_at: string | null;
+}
+
+export interface WebhookDeliveryMonitor {
+  id: string;
+  source: string;
+  external_event_id: string | null;
+  signature_valid: boolean;
+  processing_status: string;
+  application_id: string | null;
+  error_message: string | null;
+  received_at: string;
+  processed_at: string | null;
+}
+
+export interface IntegrationsMonitor {
+  probes: IntegrationProbe[];
+  email_deliveries: EmailDeliveryMonitor[];
+  sms_deliveries: SmsDeliveryMonitor[];
+  webhook_deliveries: WebhookDeliveryMonitor[];
+}
+
+export interface SmsRetryOut {
+  attempted: number;
+  succeeded: number;
+  failed: number;
 }
 
 export interface PlatformConfig {

@@ -88,14 +88,20 @@ def _recompute_checks(
     holder_name = effective_by_type.get("BANK_DOCUMENT", {}).get("full_name") or app.account_holder_name
 
     provider_results: list[ProviderCheckResult] = [
-        lookup_ifsc_directory(str(ifsc_code) if ifsc_code else None),
-        check_pan_verification_adapter(str(pan_number) if pan_number else None),
+        lookup_ifsc_directory(str(ifsc_code) if ifsc_code else None, db=db),
+        check_pan_verification_adapter(
+            str(pan_number) if pan_number else None,
+            full_name=app.full_name,
+            db=db,
+        ),
         check_bank_penny_drop_adapter(
             str(ifsc_code) if ifsc_code else None,
             str(holder_name) if holder_name else None,
+            account_last4=app.account_number_last4,
+            db=db,
         ),
-        check_digilocker_adapter(),
-        check_face_match_adapter(selfie_face_val),
+        check_digilocker_adapter(application_id=str(app.id), db=db),
+        check_face_match_adapter(selfie_face_val, application_id=str(app.id), db=db),
     ]
 
     db.execute(delete(VerificationCheck).where(VerificationCheck.application_id == app.id))
@@ -248,7 +254,7 @@ def run_document_intelligence(
         )
 
     storage = get_storage()
-    assistant = get_ai_assistant()
+    assistant = get_ai_assistant(db)
     existing_by_doc_id = {
         ext.document_id: ext
         for ext in db.scalars(select(DocumentExtraction).where(DocumentExtraction.application_id == app.id)).all()
@@ -267,7 +273,7 @@ def run_document_intelligence(
                 f"Stored file for {doc.doc_type} could not be located in private storage.",
             ) from exc
 
-        res = process_document_bytes(doc.doc_type, doc.content_type, raw_bytes)
+        res = process_document_bytes(doc.doc_type, doc.content_type, raw_bytes, db=db)
 
         redacted_key: str | None = None
         if res.redacted_image_bytes:

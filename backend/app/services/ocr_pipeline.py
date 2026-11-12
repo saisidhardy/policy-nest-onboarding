@@ -1,5 +1,6 @@
 """Local OCR execution, document classification, field normalization, and Aadhaar masking."""
 
+import base64
 import re
 import shutil
 from dataclasses import dataclass
@@ -8,9 +9,12 @@ from pathlib import Path
 
 import cv2
 import pytesseract
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.services.cv_quality import ImageQualityMetrics, analyze_image_quality, decode_image, extract_pdf_payload
+from app.services.http_client import request_json_with_retry
+from app.services.platform_config import EffectiveIntegrationsConfig, get_effective_integrations_config
 
 PAN_CANDIDATE_RE = re.compile(r"\b([A-Z]{5}[0-9OIlS]{4}[A-Z])\b")
 PAN_STRICT_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
@@ -368,8 +372,37 @@ def _run_tesseract_on_image(image_bytes: bytes) -> tuple[str, float | None, dict
     return raw_text, avg_conf, data, "LOCAL_TESSERACT"
 
 
-def process_document_bytes(doc_type: str, content_type: str, data: bytes) -> OcrPipelineResult:
-    """Run CV quality inspection, local OCR, classification, normalization, and Aadhaar masking."""
+def _run_http_ocr(
+    doc_type: str, content_type: str, data: bytes, cfg: EffectiveIntegrationsConfig
+) -> tuple[str, float | None, dict | None, str]:
+    if not cfg.ocr_api_base_url or not cfg.ocr_api_key:
+        return "", None, None, "HTTP_OCR_UNCONFIGURED"
+    res = request_json_with_retry(
+        "POST",
+        cfg.ocr_api_base_url,
+        headers={"Authorization": f"Bearer {cfg.ocr_api_key}", "Content-Type": "application/json"},
+        json_body={
+            "doc_type": doc_type,
+            "content_type": content_type,
+            "content_base64": base64.b64encode(data).decode("ascii"),
+        },
+        timeout_seconds=float(cfg.integration_http_timeout_seconds),
+        max_retries=cfg.integration_http_max_retries,
+        backoff_base_seconds=0.1,
+    )
+    if not res.ok:
+        return "", None, None, "HTTP_OCR_UNAVAILABLE"
+    text = str(res.data.get("text") or "")
+    raw_conf = res.data.get("confidence")
+    conf = float(raw_conf) if isinstance(raw_conf, int | float) else None
+    return text, conf, None, "HTTP_OCR"
+
+
+def process_document_bytes(
+    doc_type: str, content_type: str, data: bytes, db: Session | None = None
+) -> OcrPipelineResult:
+    """Run CV quality inspection, configured OCR (local Tesseract or HTTP OCR), normalization, and Aadhaar masking."""
+    cfg = get_effective_integrations_config(db)
     is_pdf = content_type == "application/pdf"
     is_selfie = doc_type == "APPLICANT_SELFIE"
 
@@ -389,7 +422,14 @@ def process_document_bytes(doc_type: str, content_type: str, data: bytes) -> Ocr
         elif pdf_images:
             raster_for_redaction = pdf_images[0]
             quality = analyze_image_quality(raster_for_redaction, check_face=False)
-            raw_text, ocr_confidence, ocr_data, ocr_engine = _run_tesseract_on_image(raster_for_redaction)
+            if cfg.ocr_provider == "none":
+                ocr_engine = "DISABLED"
+            elif cfg.ocr_provider == "http_ocr":
+                raw_text, ocr_confidence, ocr_data, ocr_engine = _run_http_ocr(
+                    doc_type, "image/png", raster_for_redaction, cfg
+                )
+            else:
+                raw_text, ocr_confidence, ocr_data, ocr_engine = _run_tesseract_on_image(raster_for_redaction)
         else:
             quality = ImageQualityMetrics("UNREADABLE", None, None, None, None, None, None)
             ocr_confidence = 0.0
@@ -400,6 +440,10 @@ def process_document_bytes(doc_type: str, content_type: str, data: bytes) -> Ocr
         if is_selfie:
             ocr_engine = "CV_FACE_DETECTOR"
             ocr_confidence = 1.0 if quality.face_detected else 0.0
+        elif cfg.ocr_provider == "none":
+            ocr_engine = "DISABLED"
+        elif cfg.ocr_provider == "http_ocr":
+            raw_text, ocr_confidence, ocr_data, ocr_engine = _run_http_ocr(doc_type, content_type, data, cfg)
         else:
             raw_text, ocr_confidence, ocr_data, ocr_engine = _run_tesseract_on_image(data)
 

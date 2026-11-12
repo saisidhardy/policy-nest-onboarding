@@ -11,13 +11,16 @@ from app.schemas.admin import (
     AdminAssignReviewerRequest,
     AdminConfigBundleOut,
     AdminDashboardOut,
+    IntegrationProbeOut,
     IntegrationsConfigOut,
+    IntegrationsMonitorOut,
     LmsConfigOut,
     PlatformConfigOut,
     ReassignWorkloadOut,
     ReassignWorkloadRequest,
     ReviewerWorkloadOut,
     RoleDetailOut,
+    SmsRetryOut,
     UpdateIntegrationsConfigRequest,
     UpdateLmsConfigRequest,
     UpdatePlatformConfigRequest,
@@ -143,3 +146,30 @@ def reset_config_section(
     ctx: AuthContext = Depends(require_permission("config:manage")),
 ):
     return admin_ops.reset_config_section(db, request, section=section, actor=ctx.user)
+
+
+@router.post("/integrations/probe", response_model=list[IntegrationProbeOut])
+def probe_integrations(
+    request: Request,
+    db: DB,
+    key: str | None = Query(default=None, max_length=64),
+    ctx: AuthContext = Depends(require_permission("config:manage")),
+):
+    return admin_ops.probe_integrations_action(db, request, actor=ctx.user, target_key=key)
+
+
+@router.get("/integrations/monitor", response_model=IntegrationsMonitorOut)
+def get_integrations_monitor(
+    db: DB,
+    _: AuthContext = Depends(require_permission("system:read")),
+):
+    return admin_ops.get_integrations_monitor_action(db)
+
+
+@router.post("/integrations/sms/retry-failed", response_model=SmsRetryOut)
+def retry_failed_sms(
+    request: Request,
+    db: DB,
+    ctx: AuthContext = Depends(require_permission("config:manage")),
+):
+    return admin_ops.retry_failed_sms_action(db, request, actor=ctx.user)

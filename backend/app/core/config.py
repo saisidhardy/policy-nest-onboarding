@@ -53,8 +53,23 @@ class Settings(BaseSettings):
 
     redis_url: str | None = None
 
-    # Phase 3: Document intelligence, AI assistance, and external verification adapters
-    ocr_provider: Literal["local_tesseract", "none"] = "local_tesseract"
+    # Phase 8: Outbound transport, SMS & webhook hardening
+    email_max_attempts: int = 3
+    integration_http_timeout_seconds: int = 8
+    integration_http_max_retries: int = 2
+    webhook_shared_secret: str | None = None
+
+    sms_provider: Literal["not_configured", "sandbox", "twilio", "msg91", "webhook_http"] = "not_configured"
+    sms_api_base_url: str | None = None
+    sms_api_key: str | None = None
+    sms_sender_id: str | None = None
+    sms_timeout_seconds: int = 8
+    sms_max_attempts: int = 3
+
+    # Phase 3 & 8: Document intelligence, AI assistance, and external verification adapters
+    ocr_provider: Literal["local_tesseract", "http_ocr", "none"] = "local_tesseract"
+    ocr_api_base_url: str | None = None
+    ocr_api_key: str | None = None
     tesseract_cmd: str | None = None
     ai_provider: Literal["local_heuristic", "gemini"] = "local_heuristic"
     gemini_api_key: str | None = None
@@ -62,9 +77,18 @@ class Settings(BaseSettings):
 
     ifsc_lookup_enabled: bool = True
     pan_verification_provider: Literal["not_configured", "sandbox", "protean", "cashfree"] = "not_configured"
+    pan_api_base_url: str | None = None
+    pan_api_key: str | None = None
     bank_verification_provider: Literal["not_configured", "sandbox", "razorpayx", "cashfree"] = "not_configured"
+    bank_api_base_url: str | None = None
+    bank_api_key: str | None = None
     digilocker_provider: Literal["not_configured", "sandbox", "negd_oauth"] = "not_configured"
+    digilocker_base_url: str | None = None
+    digilocker_client_id: str | None = None
+    digilocker_client_secret: str | None = None
     face_match_provider: Literal["not_configured", "sandbox", "aws_rekognition"] = "not_configured"
+    face_api_base_url: str | None = None
+    face_api_key: str | None = None
 
     # Phase 6: External LMS training & POSP certification integration adapter
     lms_provider: Literal["not_configured", "sandbox", "http_api"] = "not_configured"
@@ -125,6 +149,7 @@ class Settings(BaseSettings):
                 "digilocker_provider",
                 "face_match_provider",
                 "lms_provider",
+                "sms_provider",
             ):
                 if getattr(self, field_name) == "sandbox":
                     raise ValueError(f"{field_name.upper()}=sandbox is forbidden in production")

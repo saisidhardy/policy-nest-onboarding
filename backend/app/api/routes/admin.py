@@ -30,14 +30,13 @@ from app.services import audit
 from app.services.auth import PURPOSE_INVITE, issue_action_token, live_session_filter, revoke_all_sessions
 from app.services.email import get_provider, queue_email
 from app.services.lms_adapter import get_lms_integration_status
+from app.services.sms import get_sms_integration_status
 from app.services.storage import get_storage
-from app.services.verification_providers import get_verification_integration_statuses
+from app.services.verification_providers import get_verification_integration_statuses, get_webhook_integration_status
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-PLANNED_INTEGRATIONS = [
-    ("sms", "SMS / WhatsApp notifications", "Phase 8"),
-]
+PLANNED_INTEGRATIONS: list[tuple[str, str, str]] = []
 
 
 def _get_user(db: DB, user_id: uuid.UUID) -> User:
@@ -344,6 +343,7 @@ def system_health(db: DB, _: AuthContext = Depends(require_permission("system:re
     integrations = (
         [_email_integration(), _storage_integration()]
         + [IntegrationStatus(**st) for st in get_verification_integration_statuses(db)]
+        + [IntegrationStatus(**get_sms_integration_status(db)), IntegrationStatus(**get_webhook_integration_status(db))]
         + [
             IntegrationStatus(
                 key=(lms_st := get_lms_integration_status(db))["key"],

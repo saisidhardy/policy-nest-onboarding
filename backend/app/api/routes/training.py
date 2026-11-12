@@ -17,6 +17,7 @@ from app.schemas.training import (
 from app.services import applications as app_service
 from app.services import lms_adapter
 from app.services import training as training_service
+from app.services.webhooks import record_lms_webhook_delivery
 
 router = APIRouter(tags=["training"])
 
@@ -128,6 +129,24 @@ async def receive_lms_webhook(request: Request, db: DB):
     raw_body = await request.body()
     ok, reason = lms_adapter.verify_webhook_signature(raw_body, request.headers.get("x-lms-signature"), db=db)
     if not ok:
+        record_lms_webhook_delivery(
+            db,
+            raw_body=raw_body,
+            signature_valid=False,
+            processing_status="REJECTED_SIGNATURE",
+            error_message=reason,
+        )
+        db.commit()
         raise AppError(401, "INVALID_WEBHOOK_SIGNATURE", reason)
     payload = LmsWebhookPayload.model_validate_json(raw_body)
-    return training_service.process_inbound_webhook(db, payload, request)
+    result = training_service.process_inbound_webhook(db, payload, request)
+    record_lms_webhook_delivery(
+        db,
+        raw_body=raw_body,
+        signature_valid=True,
+        processing_status="PROCESSED",
+        application_id=result.application_id,
+        external_event_id=payload.event_id,
+    )
+    db.commit()
+    return result
