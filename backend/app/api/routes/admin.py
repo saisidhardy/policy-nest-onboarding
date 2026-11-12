@@ -30,15 +30,11 @@ from app.services import audit
 from app.services.auth import PURPOSE_INVITE, issue_action_token, live_session_filter, revoke_all_sessions
 from app.services.email import get_provider, queue_email
 from app.services.storage import get_storage
+from app.services.verification_providers import get_verification_integration_statuses
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 PLANNED_INTEGRATIONS = [
-    ("ocr", "OCR provider", "Phase 3"),
-    ("pan_verification", "PAN verification (Protean/UTIITSL via authorised provider)", "Phase 8"),
-    ("bank_verification", "Bank account penny-drop verification", "Phase 8"),
-    ("digilocker", "DigiLocker document source", "Phase 8"),
-    ("face_match", "Face match and liveness", "Phase 8"),
     ("sms", "SMS / WhatsApp notifications", "Phase 8"),
     ("lms", "LMS training sync", "Phase 6"),
 ]
@@ -345,16 +341,20 @@ def system_health(db: DB, _: AuthContext = Depends(require_permission("system:re
             .group_by(EmailDelivery.status)
         ).all()
     )
-    integrations = [_email_integration(), _storage_integration()] + [
-        IntegrationStatus(
-            key=key,
-            name=name,
-            status="NOT_CONFIGURED",
-            mode="NONE",
-            detail=f"Adapter scheduled for {phase}. No verification is performed.",
-        )
-        for key, name, phase in PLANNED_INTEGRATIONS
-    ]
+    integrations = (
+        [_email_integration(), _storage_integration()]
+        + [IntegrationStatus(**st) for st in get_verification_integration_statuses()]
+        + [
+            IntegrationStatus(
+                key=key,
+                name=name,
+                status="NOT_CONFIGURED",
+                mode="NONE",
+                detail=f"Adapter scheduled for {phase}. No verification is performed.",
+            )
+            for key, name, phase in PLANNED_INTEGRATIONS
+        ]
+    )
     database = database_status()
     healthy = database.get("connected") and database.get("migrations_current")
     return SystemHealthOut(

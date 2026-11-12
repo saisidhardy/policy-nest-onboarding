@@ -12,6 +12,7 @@ from app.core.errors import AppError
 from app.models import Application, ApplicationDocument, ApplicationEvent
 from app.models.application import ACTIVE_APPLICATION_STATUSES, EDITABLE_STATUSES, REQUIRED_DOC_TYPES
 from app.models.base import utcnow
+from app.rbac.policy import Resource
 from app.schemas.application import (
     ApplicationCreateRequest,
     ApplicationDetailOut,
@@ -76,6 +77,20 @@ _SENSITIVE_AUDIT_FIELDS = {"pan_number", "aadhaar_last4", "mobile", "email", "ac
 def _generate_reference_code(db: Session) -> str:
     seq_val = db.execute(text("SELECT nextval('app_reference_seq')")).scalar_one()
     return f"APP-{int(seq_val)}"
+
+
+def application_resource(app: Application) -> Resource:
+    return Resource(
+        type="application",
+        id=str(app.id),
+        owner_id=app.user_id,
+        region=app.region,
+        sensitivity=app.sensitivity,
+    )
+
+
+def resolve_read_permission(auth: AuthContext) -> str:
+    return "application:read_any" if "application:read_any" in auth.permissions else "application:read_own"
 
 
 def get_application(db: Session, application_id: uuid.UUID) -> Application:
@@ -440,6 +455,9 @@ def submit_application(
         details={"reference_code": app.reference_code, "from_status": prev_status, "to_status": next_status},
     )
     db.flush()
+    from app.services import verification as verification_service
+
+    verification_service.run_document_intelligence(db, app, auth, request)
     return get_application(db, app.id)
 
 

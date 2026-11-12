@@ -76,7 +76,7 @@ class IntegrationStatus(BaseModel):
     key: str
     name: str
     status: Literal["CONFIGURED", "NOT_CONFIGURED", "DEGRADED"]
-    mode: Literal["LIVE", "LOCAL_DEVELOPMENT", "NONE"]
+    mode: Literal["LIVE", "LOCAL_DEVELOPMENT", "SANDBOX", "NONE"]
     detail: str
 
 

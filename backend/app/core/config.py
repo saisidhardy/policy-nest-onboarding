@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "PolicyNest"
     app_env: Literal["development", "test", "production"] = "development"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
 
     database_url: str
     secret_key: str = Field(min_length=32)
@@ -53,6 +53,19 @@ class Settings(BaseSettings):
 
     redis_url: str | None = None
 
+    # Phase 3: Document intelligence, AI assistance, and external verification adapters
+    ocr_provider: Literal["local_tesseract", "none"] = "local_tesseract"
+    tesseract_cmd: str | None = None
+    ai_provider: Literal["local_heuristic", "gemini"] = "local_heuristic"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.8-flash"
+
+    ifsc_lookup_enabled: bool = True
+    pan_verification_provider: Literal["not_configured", "sandbox", "protean", "cashfree"] = "not_configured"
+    bank_verification_provider: Literal["not_configured", "sandbox", "razorpayx", "cashfree"] = "not_configured"
+    digilocker_provider: Literal["not_configured", "sandbox", "negd_oauth"] = "not_configured"
+    face_match_provider: Literal["not_configured", "sandbox", "aws_rekognition"] = "not_configured"
+
     @field_validator("database_url")
     @classmethod
     def _use_psycopg_driver(cls, value: str) -> str:
@@ -92,6 +105,14 @@ class Settings(BaseSettings):
                 raise ValueError("COOKIE_SECURE cannot be disabled in production")
             if self.storage_provider == "s3" and not self.s3_bucket:
                 raise ValueError("S3_BUCKET must be configured when STORAGE_PROVIDER=s3 in production")
+            for field_name in (
+                "pan_verification_provider",
+                "bank_verification_provider",
+                "digilocker_provider",
+                "face_match_provider",
+            ):
+                if getattr(self, field_name) == "sandbox":
+                    raise ValueError(f"{field_name.upper()}=sandbox is forbidden in production")
         return self
 
 

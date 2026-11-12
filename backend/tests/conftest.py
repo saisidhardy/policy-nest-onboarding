@@ -9,6 +9,7 @@ os.environ["SECRET_KEY"] = secrets.token_urlsafe(48)
 os.environ["SMTP_HOST"] = ""
 os.environ["REQUIRE_EMAIL_VERIFICATION"] = "true"
 os.environ["EMAIL_RESEND_COOLDOWN_SECONDS"] = "0"
+os.environ.setdefault("IFSC_LOOKUP_ENABLED", "false")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -59,14 +60,17 @@ def migrated_db():
 
 @pytest.fixture(autouse=True)
 def clean_tables(migrated_db, tmp_path):
+    get_settings.cache_clear()
     storage_service.set_storage_override(storage_service.LocalPrivateStorage(tmp_path / "storage"))
     yield
     storage_service.set_storage_override(None)
+    get_settings.cache_clear()
     with get_engine().begin() as conn:
         conn.execute(
             text(
                 "TRUNCATE users, user_sessions, user_action_tokens, email_deliveries, audit_logs, "
-                "applications, application_documents, application_events, notifications RESTART IDENTITY CASCADE"
+                "applications, application_documents, application_events, notifications, "
+                "document_extractions, document_field_corrections, verification_checks RESTART IDENTITY CASCADE"
             )
         )
         conn.execute(text("ALTER SEQUENCE app_reference_seq RESTART WITH 260001"))

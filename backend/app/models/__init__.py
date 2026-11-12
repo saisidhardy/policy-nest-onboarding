@@ -4,6 +4,7 @@ from app.models.base import Base
 from app.models.email import EmailDelivery
 from app.models.notification import Notification
 from app.models.user import Permission, Role, User, UserActionToken, UserSession, role_permissions
+from app.models.verification import DocumentExtraction, DocumentFieldCorrection, VerificationCheck
 
 __all__ = [
     "Application",
@@ -11,6 +12,8 @@ __all__ = [
     "ApplicationEvent",
     "AuditLog",
     "Base",
+    "DocumentExtraction",
+    "DocumentFieldCorrection",
     "EmailDelivery",
     "Notification",
     "Permission",
@@ -18,5 +21,6 @@ __all__ = [
     "User",
     "UserActionToken",
     "UserSession",
+    "VerificationCheck",
     "role_permissions",
 ]

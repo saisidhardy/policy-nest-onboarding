@@ -27,17 +27,11 @@ router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 def _app_resource(app: Application) -> Resource:
-    return Resource(
-        type="application",
-        id=str(app.id),
-        owner_id=app.user_id,
-        region=app.region,
-        sensitivity=app.sensitivity,
-    )
+    return app_service.application_resource(app)
 
 
 def _read_perm(auth: AuthContext) -> str:
-    return "application:read_any" if "application:read_any" in auth.permissions else "application:read_own"
+    return app_service.resolve_read_permission(auth)
 
 
 @router.get("/metadata/states", summary="Authoritative Indian states and UTs list")
