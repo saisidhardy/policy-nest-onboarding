@@ -121,6 +121,21 @@ class Application(TimestampMixin, Base):
     resolution_kind: Mapped[str | None] = mapped_column(String(32))
     reapplication_reason: Mapped[str | None] = mapped_column(Text)
     rework_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    assigned_reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_applications_assigned_reviewer_id"),
+        index=True,
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    escalated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_applications_escalated_by_user_id")
+    )
+    escalation_reason: Mapped[str | None] = mapped_column(Text)
+    fraud_flag: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false"), index=True
+    )
+    fraud_reason: Mapped[str | None] = mapped_column(Text)
+    fraud_escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     documents: Mapped[list["ApplicationDocument"]] = relationship(
         back_populates="application",

@@ -25,6 +25,9 @@ describe("navigation visibility", () => {
     expect(admin).not.toContain("Document review");
     const reviewer = visibleNav(["profile:read", "application:read_any", "application:review"]).map((i) => i.label);
     expect(reviewer).toContain("Document review");
+    expect(reviewer).not.toContain("Ops analytics");
+    const senior = visibleNav(["profile:read", "application:read_any", "application:review", "analytics:read"]).map((i) => i.label);
+    expect(senior).toContain("Ops analytics");
   });
 });
 

@@ -341,6 +341,13 @@ class ApplicationDetailOut(BaseModel):
     resolution_kind: str | None = None
     reapplication_reason: str | None = None
     rework_count: int = 0
+    assigned_reviewer_id: uuid.UUID | None = None
+    assigned_at: datetime | None = None
+    escalated_at: datetime | None = None
+    escalation_reason: str | None = None
+    fraud_flag: bool = False
+    fraud_reason: str | None = None
+    fraud_escalated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -2,14 +2,16 @@
 
 AI-first POSP (Point of Sales Person) onboarding platform for an insurance intermediary.
 
-This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, and **Phase 4 (Rules Engine & Decision Management)**:
+This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, **Phase 4 (Rules Engine & Decision Management)**, and **Phase 5 (Reviewer & Operations Portal)**:
 authentication, sessions, RBAC/ABAC, audit logging, admin user management, applicant onboarding wizard,
 private document upload/retrieval, tracking, application history, notifications, OpenCV image quality checks,
 local Tesseract OCR / PyPDF extraction, Aadhaar text masking and image redaction, 8-tier Indian name matching,
 cross-document consistency checks, external verification adapters, reviewer extracted-field corrections, versioned
 deterministic PS-01 v3.2.0 policy rules (`RuleSet`, `RuleExecution`, consolidated EN/HI rework, non-auto-reject
-`NAME_MISMATCH` guardrail, reviewer override controls), and separated Correction / Reapplication / Appeal flows.
-Full reviewer portal queues, LMS sync, and commercial KYC/banking providers follow in Phases 5–8. The original
+`NAME_MISMATCH` guardrail, reviewer override controls), separated Correction / Reapplication / Appeal flows,
+ABAC-scoped reviewer queues, claim/assignment, side-by-side baseline vs OCR field comparison, Fraud Desk
+escalation/resolution, review history, and operational analytics.
+LMS training sync, admin integration portals, and commercial KYC/banking providers follow in Phases 6–8. The original
 single-file prototype is kept unchanged in [`legacy/`](legacy/).
 
 | Path | Contents |
@@ -20,6 +22,7 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 | `docs/PHASE2.md` | Phase 2 applicant onboarding, document storage, tracking, notifications, acceptance checklist |
 | `docs/PHASE3.md` | Phase 3 OCR extraction, CV quality, Aadhaar redaction, consistency checks, reviewer corrections |
 | `docs/PHASE4.md` | Phase 4 versioned deterministic rules engine, reviewer overrides, appeals and reapplications |
+| `docs/PHASE5.md` | Phase 5 reviewer queue, claim/assign, field comparison, Fraud Desk, history and analytics |
 | `docs/phase0/` | Audit, requirements and architecture plan |
 | `docs/source_materials/` | Business source package (rulebook, regulatory matrix, specs, datasets) |
 | `legacy/` | Original single-file prototype and SQLite backend |

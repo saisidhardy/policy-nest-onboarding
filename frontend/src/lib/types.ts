@@ -273,6 +273,13 @@ export interface ApplicationDetail {
   resolution_kind?: string | null;
   reapplication_reason?: string | null;
   rework_count?: number;
+  assigned_reviewer_id?: string | null;
+  assigned_at?: string | null;
+  escalated_at?: string | null;
+  escalation_reason?: string | null;
+  fraud_flag?: boolean;
+  fraud_reason?: string | null;
+  fraud_escalated_at?: string | null;
   created_at: string;
   updated_at: string;
 
@@ -501,4 +508,115 @@ export interface ApplicationDecisionSummary {
   execution_history: RuleExecution[];
   decisions: ApplicationDecision[];
   appeals: ApplicationAppeal[];
+}
+
+export interface ReviewQueueKpis {
+  pending_review_count: number;
+  submitted_count: number;
+  rework_submitted_count: number;
+  in_review_count: number;
+  escalated_count: number;
+  fraud_flagged_count: number;
+  open_appeals_count: number;
+  assigned_to_me_count: number;
+  unassigned_pending_count: number;
+  kyc_approved_count: number;
+  rejected_count: number;
+}
+
+export interface ReviewQueueItem {
+  id: string;
+  reference_code: string;
+  status: string;
+  region: string | null;
+  sensitivity: number;
+  full_name: string | null;
+  city: string | null;
+  state: string | null;
+  submitted_at: string | null;
+  last_saved_at: string;
+  rework_count: number;
+  resolution_kind: string | null;
+  assigned_reviewer_id: string | null;
+  assigned_reviewer_name: string | null;
+  assigned_at: string | null;
+  escalated_at: string | null;
+  escalation_reason: string | null;
+  fraud_flag: boolean;
+  fraud_reason: string | null;
+  fraud_escalated_at: string | null;
+  latest_outcome: string | null;
+  latest_reason_codes: string[];
+  open_appeal_count: number;
+  uploaded_document_count: number;
+  required_document_count: number;
+}
+
+export interface ReviewQueuePage {
+  items: ReviewQueueItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  kpis: ReviewQueueKpis;
+}
+
+export interface ReviewHistoryItem {
+  decision_id: string;
+  application_id: string;
+  reference_code: string;
+  applicant_name: string | null;
+  region: string | null;
+  decided_by_user_id: string;
+  decided_by_name: string;
+  decided_by_role: string;
+  decision: string;
+  previous_status: string;
+  new_status: string;
+  is_override: boolean;
+  override_of_outcome: string | null;
+  reason_codes: string[];
+  reason_text: string;
+  created_at: string;
+}
+
+export interface ReviewHistoryPage {
+  items: ReviewHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ReviewerProductivity {
+  user_id: string;
+  full_name: string;
+  role_code: string;
+  decisions_count: number;
+  approvals_count: number;
+  rework_count: number;
+  rejections_count: number;
+  escalations_count: number;
+  overrides_count: number;
+  field_corrections_count: number;
+}
+
+export interface ReviewAnalytics {
+  total_submitted_or_decided: number;
+  status_counts: Record<string, number>;
+  rule_outcome_counts: Record<string, number>;
+  stp_auto_pass_rate_pct: number;
+  rework_rate_pct: number;
+  escalation_rate_pct: number;
+  fraud_flagged_active_count: number;
+  avg_turnaround_hours: number | null;
+  open_appeals_count: number;
+  resolved_appeals_count: number;
+  reviewer_productivity: ReviewerProductivity[];
+}
+
+export interface AssignableReviewer {
+  id: string;
+  full_name: string;
+  email: string;
+  role_code: string;
+  region: string | null;
 }

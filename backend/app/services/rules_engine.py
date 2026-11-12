@@ -939,6 +939,9 @@ def evaluate_application(
             f"(limit: {cfg.max_rework_cycles_before_human}). Escalated for Fraud/Operations manual inspection."
         )
         risks.append({"code": "REPEATED_REWORK_ESCALATION", "level": "HIGH", "message": msg})
+        app.fraud_flag = True
+        app.fraud_escalated_at = app.fraud_escalated_at or utcnow()
+        app.fraud_reason = app.fraud_reason or msg
         add_rule(
             "RISK_REPEATED_REWORK",
             "RISK",
@@ -1212,6 +1215,10 @@ def record_reviewer_decision(
     app.last_saved_at = utcnow()
     if new_status == "NEEDS_MORE_INFO":
         app.resolution_kind = "CORRECTION"
+    if body.decision == "ESCALATE":
+        app.escalated_at = utcnow()
+        app.escalated_by_user_id = auth.user.id
+        app.escalation_reason = body.reason_text.strip()
 
     event_type = f"REVIEWER_{body.decision}"
     db.add(
