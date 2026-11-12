@@ -32,6 +32,9 @@ export default function Home() {
           <Link href="/register" className="rounded-lg bg-brand-700 px-4 py-2 font-medium text-white hover:bg-brand-800">
             Become a POSP
           </Link>
+          <Link href="/verify-certificate" className="rounded-lg px-4 py-2 font-medium text-slate-700 hover:bg-slate-100">
+            Verify certificate
+          </Link>
         </nav>
       </header>
       <main>
@@ -50,6 +53,9 @@ export default function Home() {
             </Link>
             <Link href="/login" className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
               Staff sign in
+            </Link>
+            <Link href="/verify-certificate" className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+              Verify a certificate
             </Link>
           </div>
         </section>

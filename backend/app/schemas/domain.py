@@ -120,6 +120,14 @@ class TrainingModuleOut(BaseModel):
     completed: bool
 
 
+class CertificateVerificationOut(BaseModel):
+    certificate_number: str
+    candidate_name: str
+    issued_at: datetime
+    status: Literal["ACTIVE", "REVOKED"]
+    seal_sha256: str
+
+
 class OperationsSummary(BaseModel):
     total_applications: int
     by_status: dict[str, int]
