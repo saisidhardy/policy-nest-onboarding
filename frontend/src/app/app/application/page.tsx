@@ -63,9 +63,23 @@ export default function ApplicationPage() {
   if (loading) return <Spinner />;
   if (!application) return <Alert tone="error">Application could not be loaded.</Alert>;
   const editable = ["DRAFT", "CORRECTION_REQUIRED"].includes(application.status);
+  const requiredFields = Object.values(form);
+  const completedFields = requiredFields.filter((value) => value.trim().length > 0).length;
+  const completedDocuments = DOCS.filter((type) => application.documents.some((document) => document.document_type === type && document.status === "UPLOADED")).length;
+  const completion = Math.round(((completedFields + completedDocuments) / (requiredFields.length + DOCS.length)) * 100);
   return <div className="space-y-6">
     <PageHeader title="POSP onboarding application" description={`Reference ${application.reference}`} action={<Badge tone={editable ? "warning" : "brand"}>{application.status.replaceAll("_", " ")}</Badge>} />
     {message && <Alert tone={message.tone}>{message.text}</Alert>}
+    <Card><CardHeader title="Application progress" description="Complete every section and upload all six required documents before submission." action={<Badge tone={completion === 100 ? "success" : "brand"}>{completion}%</Badge>} />
+      <div className="p-5"><div className="h-2 overflow-hidden rounded bg-slate-100" role="progressbar" aria-label="Application completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion}><div className="h-full rounded bg-brand-600 transition-all" style={{width:`${completion}%`}} /></div>
+        <ol className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+          <li className={completedFields >= 4 ? "text-emerald-700" : "text-slate-500"}>1. Identity</li>
+          <li className={completedFields >= 8 ? "text-emerald-700" : "text-slate-500"}>2. Address & education</li>
+          <li className={completedFields === requiredFields.length ? "text-emerald-700" : "text-slate-500"}>3. Bank mandate</li>
+          <li className={completedDocuments === DOCS.length ? "text-emerald-700" : "text-slate-500"}>4. Documents ({completedDocuments}/{DOCS.length})</li>
+        </ol>
+      </div>
+    </Card>
     <form onSubmit={save} className="space-y-6">
       <Card><CardHeader title="Identity and eligibility" description="Enter the details exactly as they appear on your documents." />
         <div className="grid gap-4 p-5 sm:grid-cols-2">
@@ -92,6 +106,6 @@ export default function ApplicationPage() {
         {editable && <input className="mt-3 block w-full text-sm" type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e)=>e.target.files?.[0] && void upload(type,e.target.files[0])}/>} 
       </label>; })}
     </div></Card>
-    {editable && <div className="flex justify-end"><Button onClick={submit}>Submit for review</Button></div>}
+    {editable && <div className="flex items-center justify-end gap-3">{completion < 100 && <span className="text-sm text-slate-500">Complete all fields and documents to submit.</span>}<Button disabled={completion < 100} onClick={submit}>Submit for review</Button></div>}
   </div>;
 }

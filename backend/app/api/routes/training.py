@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
@@ -9,12 +9,22 @@ from app.api.deps import DB, AuthContext, CurrentAuth, require_permission
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models import Application, Certificate, ExamAttempt, TrainingProgress
-from app.schemas.domain import ExamAttemptOut, ExamSubmitIn, TrainingModuleOut, TrainingUpdateIn
+from app.schemas.domain import (
+    CertificateVerificationOut,
+    ExamAttemptOut,
+    ExamSubmitIn,
+    TrainingModuleOut,
+    TrainingUpdateIn,
+)
 from app.services import audit
 from app.services.onboarding import transition
 from app.services.training import MODULES, QUESTIONS, certificate_seal, public_question, randomized_order
 
 router = APIRouter(prefix="/training", tags=["training and certification"])
+
+
+def _redacted_name(full_name: str) -> str:
+    return " ".join(f"{part[0]}{'*' * max(2, len(part) - 1)}" for part in full_name.split() if part)
 
 
 def _simple_certificate_pdf(lines: list[str]) -> bytes:
@@ -135,10 +145,35 @@ def start_exam(request: Request, db: DB, auth: CurrentAuth):
     if open_attempt:
         attempt = open_attempt
     else:
+        settings = get_settings()
         count = (
             db.scalar(select(func.count()).select_from(ExamAttempt).where(ExamAttempt.application_id == application.id))
             or 0
         )
+        if count >= settings.exam_max_attempts:
+            raise AppError(
+                409,
+                "EXAM_ATTEMPT_LIMIT",
+                f"The pilot assessment allows at most {settings.exam_max_attempts} attempts.",
+                {"attempts_used": count, "attempts_allowed": settings.exam_max_attempts},
+            )
+        latest = db.scalar(
+            select(ExamAttempt)
+            .where(ExamAttempt.application_id == application.id, ExamAttempt.submitted_at.is_not(None))
+            .order_by(ExamAttempt.submitted_at.desc())
+            .limit(1)
+        )
+        if latest and latest.passed is False and latest.submitted_at:
+            eligible_at = latest.submitted_at + timedelta(hours=settings.exam_retake_cooldown_hours)
+            now = datetime.now(timezone.utc)
+            if eligible_at > now:
+                retry_after = max(1, int((eligible_at - now).total_seconds()))
+                raise AppError(
+                    429,
+                    "EXAM_RETAKE_COOLDOWN",
+                    f"A {settings.exam_retake_cooldown_hours}-hour cooldown applies before another assessment attempt.",
+                    {"eligible_at": eligible_at.isoformat(), "retry_after_seconds": retry_after},
+                )
         attempt = ExamAttempt(
             application_id=application.id,
             attempt_number=count + 1,
@@ -173,6 +208,9 @@ def submit_exam(attempt_id: uuid.UUID, body: ExamSubmitIn, request: Request, db:
         raise AppError(409, "EXAM_ALREADY_SUBMITTED", "This exam has already been submitted.")
     if set(body.answers) != set(attempt.question_order):
         raise AppError(422, "ANSWERS_INCOMPLETE", "Answer all 50 questions before submitting.")
+    invalid_answers = [qid for qid, value in body.answers.items() if value not in range(len(QUESTIONS[qid]["options"]))]
+    if invalid_answers:
+        raise AppError(422, "ANSWERS_INVALID", "One or more selected answers are invalid.")
     correct = sum(int(body.answers[qid] == QUESTIONS[qid]["answer"]) for qid in attempt.question_order)
     score = round(correct * 100 / len(attempt.question_order), 2)
     passed = score >= 70
@@ -225,6 +263,7 @@ def certificate_pdf(db: DB, auth: CurrentAuth):
             f"Certificate: {certificate.certificate_number}",
             f"Issued: {certificate.issued_at:%d %B %Y}",
             f"SHA-256 seal: {certificate.seal_sha256}",
+            f"Verify: {get_settings().public_app_url.rstrip('/')}/verify-certificate?number={certificate.certificate_number}",
             "Subject to verification and the regulated entity's approval process.",
         ]
     )
@@ -233,3 +272,22 @@ def certificate_pdf(db: DB, auth: CurrentAuth):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{certificate.certificate_number}.pdf"'},
     )
+
+
+@router.get("/certificates/{certificate_number}", response_model=CertificateVerificationOut)
+def verify_certificate(certificate_number: str, db: DB):
+    certificate = db.scalar(
+        select(Certificate).where(Certificate.certificate_number == certificate_number.strip().upper())
+    )
+    if certificate is None:
+        raise AppError(404, "CERTIFICATE_NOT_FOUND", "Certificate not found.")
+    application = db.scalar(select(Application).where(Application.id == certificate.application_id))
+    if application is None:
+        raise AppError(404, "CERTIFICATE_NOT_FOUND", "Certificate not found.")
+    return {
+        "certificate_number": certificate.certificate_number,
+        "candidate_name": _redacted_name(application.applicant.full_name),
+        "issued_at": certificate.issued_at,
+        "status": "REVOKED" if certificate.revoked_at else "ACTIVE",
+        "seal_sha256": certificate.seal_sha256,
+    }

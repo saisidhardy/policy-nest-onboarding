@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     password_reset_ttl_minutes: int = 30
     invite_ttl_hours: int = 72
     email_resend_cooldown_seconds: int = 60
+    exam_max_attempts: int = Field(default=3, ge=1, le=10)
+    exam_retake_cooldown_hours: int = Field(default=24, ge=0, le=168)
 
     smtp_host: str | None = None
     smtp_port: int = 587

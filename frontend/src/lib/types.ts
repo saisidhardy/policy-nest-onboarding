@@ -147,6 +147,11 @@ export interface TrainingModule {
   code: string; title: string; required_minutes: number; minutes_completed: number; completed: boolean;
 }
 
+export interface CertificateVerification {
+  certificate_number: string; candidate_name: string; issued_at: string;
+  status: "ACTIVE" | "REVOKED"; seal_sha256: string;
+}
+
 export interface OperationsSummary {
   total_applications: number; by_status: Record<string, number>; submitted_last_30_days: number;
   average_review_hours: number | null; pending_review: number; corrections_open: number;
