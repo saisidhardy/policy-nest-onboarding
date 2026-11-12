@@ -8,6 +8,7 @@ import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationStatusBadge } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
 import { FieldComparisonCard } from "@/components/review/FieldComparisonCard";
+import { TrainingStatusPanel } from "@/components/training/TrainingStatusPanel";
 import { DecisionHistoryPanel } from "@/components/verification/DecisionHistoryPanel";
 import { VerificationReportPanel } from "@/components/verification/VerificationReportPanel";
 import { Alert, Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
@@ -369,6 +370,10 @@ function ReviewerDetailInner() {
           canDecide={can("application:decide") || can("application:escalate")}
           canDecideEscalated={can("application:decide_escalated")}
         />
+
+        {(app.status === "KYC_APPROVED" || app.status === "TRAINING_IN_PROGRESS" || app.status === "CERTIFIED") && (
+          <TrainingStatusPanel applicationId={app.id} onApplicationStatusChanged={load} />
+        )}
       </div>
 
       <DocumentPreviewModal applicationId={app.id} document={previewDoc} onClose={() => setPreviewDoc(null)} />

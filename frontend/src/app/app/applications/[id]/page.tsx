@@ -8,6 +8,7 @@ import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
 import { DecisionHistoryPanel } from "@/components/verification/DecisionHistoryPanel";
+import { TrainingStatusPanel } from "@/components/training/TrainingStatusPanel";
 import { VerificationReportPanel } from "@/components/verification/VerificationReportPanel";
 import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -114,6 +115,10 @@ function ApplicationDetailView() {
         canEvaluate={app.status === "SUBMITTED" || app.status === "REWORK_SUBMITTED"}
         isApplicantOwner
       />
+
+      {(app.status === "KYC_APPROVED" || app.status === "TRAINING_IN_PROGRESS" || app.status === "CERTIFIED") && (
+        <TrainingStatusPanel applicationId={app.id} onApplicationStatusChanged={load} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

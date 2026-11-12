@@ -23,6 +23,7 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 | `docs/PHASE3.md` | Phase 3 OCR extraction, CV quality, Aadhaar redaction, consistency checks, reviewer corrections |
 | `docs/PHASE4.md` | Phase 4 versioned deterministic rules engine, reviewer overrides, appeals and reapplications |
 | `docs/PHASE5.md` | Phase 5 reviewer queue, claim/assign, field comparison, Fraud Desk, history and analytics |
+| `docs/PHASE6.md` | Phase 6 LMS training eligibility, adapter boundary, progress/exam sync, retries and POSP certification |
 | `docs/phase0/` | Audit, requirements and architecture plan |
 | `docs/source_materials/` | Business source package (rulebook, regulatory matrix, specs, datasets) |
 | `legacy/` | Original single-file prototype and SQLite backend |

@@ -620,3 +620,122 @@ export interface AssignableReviewer {
   role_code: string;
   region: string | null;
 }
+
+export interface CurriculumModuleProgress {
+  code: string;
+  title: string;
+  required_hours: number;
+  logged_hours: number;
+  completed: boolean;
+}
+
+export interface LmsAdapterStatus {
+  key: string;
+  name: string;
+  provider: string;
+  status: "CONFIGURED" | "DEGRADED" | "NOT_CONFIGURED" | string;
+  mode: "LIVE" | "SANDBOX" | "NONE" | string;
+  webhook_configured: boolean;
+  detail: string;
+}
+
+export interface LmsSyncLog {
+  id: string;
+  operation: string;
+  provider_name: string;
+  adapter_origin: string;
+  is_simulated: boolean;
+  attempt_number: number;
+  outcome: string;
+  http_status: number | null;
+  error_code: string | null;
+  error_message: string | null;
+  occurred_at: string;
+}
+
+export interface TrainingRecord {
+  id: string;
+  application_id: string;
+  reference_code: string | null;
+  applicant_name: string | null;
+  application_status: string | null;
+  eligibility_status: "ELIGIBLE" | "NOT_ELIGIBLE" | string;
+  eligibility_reason: string | null;
+  lms_provider: string;
+  is_simulated: boolean;
+  external_enrollment_id: string | null;
+  lms_launch_url: string | null;
+  enrollment_status: "NOT_ENROLLED" | "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | string;
+  required_hours: number;
+  completed_hours: number;
+  progress_pct: number;
+  module_progress: CurriculumModuleProgress[];
+  enrolled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  exam_status: string;
+  exam_score_pct: number | null;
+  exam_attempts: number;
+  last_exam_at: string | null;
+  next_exam_eligible_at: string | null;
+  certification_status: "NOT_CERTIFIED" | "PENDING_ISSUANCE" | "CERTIFIED" | string;
+  certificate_number: string | null;
+  certified_at: string | null;
+  certificate_valid_until: string | null;
+  sync_status: "IDLE" | "SYNCED" | "RETRY_PENDING" | "ERROR" | "NOT_CONFIGURED" | string;
+  sync_attempts: number;
+  max_sync_attempts: number;
+  last_sync_at: string | null;
+  next_retry_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  updated_at: string;
+  adapter_status: LmsAdapterStatus;
+  sync_logs: LmsSyncLog[];
+}
+
+export interface TrainingQueueItem {
+  application_id: string;
+  reference_code: string;
+  applicant_name: string | null;
+  region: string | null;
+  application_status: string;
+  eligibility_status: string;
+  enrollment_status: string;
+  completed_hours: number;
+  required_hours: number;
+  progress_pct: number;
+  exam_status: string;
+  exam_score_pct: number | null;
+  certification_status: string;
+  certificate_number: string | null;
+  sync_status: string;
+  sync_attempts: number;
+  next_retry_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  is_simulated: boolean;
+  updated_at: string;
+}
+
+export interface TrainingOverview {
+  adapter_status: LmsAdapterStatus;
+  kyc_approved_awaiting_training: number;
+  training_in_progress_count: number;
+  training_completed_awaiting_exam: number;
+  certified_count: number;
+  sync_retry_pending_count: number;
+  sync_error_count: number;
+  items: TrainingQueueItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface BatchRetryOut {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  message: string;
+}

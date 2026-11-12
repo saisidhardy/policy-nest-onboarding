@@ -15,7 +15,14 @@ describe("navigation visibility", () => {
     const applicant = visibleNav(["profile:read", "profile:update", "application:create", "application:read_own"]).map(
       (i) => i.label,
     );
-    expect(applicant).toEqual(["Overview", "Onboarding", "My applications", "Notifications", "Account & security"]);
+    expect(applicant).toEqual([
+      "Overview",
+      "Onboarding",
+      "My applications",
+      "Training & LMS",
+      "Notifications",
+      "Account & security",
+    ]);
     const admin = visibleNav(["profile:read", "users:read", "roles:read", "config:manage", "audit:read", "system:read"]).map((i) => i.label);
     expect(admin).toContain("Users");
     expect(admin).toContain("Business rules");

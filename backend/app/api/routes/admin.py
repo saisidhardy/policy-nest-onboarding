@@ -29,6 +29,7 @@ from app.schemas.common import Page
 from app.services import audit
 from app.services.auth import PURPOSE_INVITE, issue_action_token, live_session_filter, revoke_all_sessions
 from app.services.email import get_provider, queue_email
+from app.services.lms_adapter import get_lms_integration_status
 from app.services.storage import get_storage
 from app.services.verification_providers import get_verification_integration_statuses
 
@@ -36,7 +37,6 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 PLANNED_INTEGRATIONS = [
     ("sms", "SMS / WhatsApp notifications", "Phase 8"),
-    ("lms", "LMS training sync", "Phase 6"),
 ]
 
 
@@ -344,6 +344,15 @@ def system_health(db: DB, _: AuthContext = Depends(require_permission("system:re
     integrations = (
         [_email_integration(), _storage_integration()]
         + [IntegrationStatus(**st) for st in get_verification_integration_statuses()]
+        + [
+            IntegrationStatus(
+                key=(lms_st := get_lms_integration_status())["key"],
+                name=lms_st["name"],
+                status=lms_st["status"],
+                mode=lms_st["mode"],
+                detail=lms_st["detail"],
+            )
+        ]
         + [
             IntegrationStatus(
                 key=key,

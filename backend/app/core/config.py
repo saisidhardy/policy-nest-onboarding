@@ -66,6 +66,20 @@ class Settings(BaseSettings):
     digilocker_provider: Literal["not_configured", "sandbox", "negd_oauth"] = "not_configured"
     face_match_provider: Literal["not_configured", "sandbox", "aws_rekognition"] = "not_configured"
 
+    # Phase 6: External LMS training & POSP certification integration adapter
+    lms_provider: Literal["not_configured", "sandbox", "http_api"] = "not_configured"
+    lms_api_base_url: str | None = None
+    lms_api_key: str | None = None
+    lms_webhook_secret: str | None = None
+    lms_timeout_seconds: int = 8
+    lms_course_code: str = "IRDAI-POSP-15H"
+    lms_required_hours: float = 15.0
+    lms_passing_score_pct: float = 50.0
+    lms_exam_cooldown_hours: int = 24
+    lms_certificate_validity_years: int = 3
+    lms_sync_retry_base_seconds: int = 300
+    lms_sync_max_attempts: int = 5
+
     @field_validator("database_url")
     @classmethod
     def _use_psycopg_driver(cls, value: str) -> str:
@@ -110,6 +124,7 @@ class Settings(BaseSettings):
                 "bank_verification_provider",
                 "digilocker_provider",
                 "face_match_provider",
+                "lms_provider",
             ):
                 if getattr(self, field_name) == "sandbox":
                     raise ValueError(f"{field_name.upper()}=sandbox is forbidden in production")

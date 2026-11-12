@@ -1055,7 +1055,10 @@ def evaluate_application(
                 action_url=f"/app/onboarding/{app.id}?step=5",
             )
         elif recommended_status == "KYC_APPROVED":
+            from app.services import training as training_service
+
             app.resolution_kind = app.resolution_kind or "INITIAL"
+            training_service.sync_eligibility_on_kyc_approval(db, app)
             create_notification(
                 db,
                 user_id=app.user_id,
@@ -1213,6 +1216,10 @@ def record_reviewer_decision(
 
     app.status = new_status
     app.last_saved_at = utcnow()
+    if new_status == "KYC_APPROVED":
+        from app.services import training as training_service
+
+        training_service.sync_eligibility_on_kyc_approval(db, app)
     if new_status == "NEEDS_MORE_INFO":
         app.resolution_kind = "CORRECTION"
     if body.decision == "ESCALATE":
@@ -1507,6 +1514,9 @@ def resolve_appeal(
         appeal.status = "APPROVED"
         new_status = "KYC_APPROVED"
         app.status = "KYC_APPROVED"
+        from app.services import training as training_service
+
+        training_service.sync_eligibility_on_kyc_approval(db, app)
         event_type = "APPEAL_APPROVED"
         summary = "Senior Reviewer approved KYC on appeal."
         latest_exec = db.scalar(
