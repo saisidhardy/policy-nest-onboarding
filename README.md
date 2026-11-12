@@ -2,12 +2,14 @@
 
 AI-first POSP (Point of Sales Person) onboarding platform for an insurance intermediary.
 
-This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, and **Phase 3 (Document Intelligence & Verification)**:
+This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, and **Phase 4 (Rules Engine & Decision Management)**:
 authentication, sessions, RBAC/ABAC, audit logging, admin user management, applicant onboarding wizard,
 private document upload/retrieval, tracking, application history, notifications, OpenCV image quality checks,
 local Tesseract OCR / PyPDF extraction, Aadhaar text masking and image redaction, 8-tier Indian name matching,
-cross-document consistency checks, external verification adapters, and reviewer extracted-field corrections. Rules engine,
-full reviewer decision cockpit, LMS sync, and commercial KYC/banking providers follow in Phases 4–8. The original
+cross-document consistency checks, external verification adapters, reviewer extracted-field corrections, versioned
+deterministic PS-01 v3.2.0 policy rules (`RuleSet`, `RuleExecution`, consolidated EN/HI rework, non-auto-reject
+`NAME_MISMATCH` guardrail, reviewer override controls), and separated Correction / Reapplication / Appeal flows.
+Full reviewer portal queues, LMS sync, and commercial KYC/banking providers follow in Phases 5–8. The original
 single-file prototype is kept unchanged in [`legacy/`](legacy/).
 
 | Path | Contents |
@@ -17,6 +19,7 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 | `docs/PHASE1.md` | Phase 1 scope, acceptance checklist, security model, known limitations |
 | `docs/PHASE2.md` | Phase 2 applicant onboarding, document storage, tracking, notifications, acceptance checklist |
 | `docs/PHASE3.md` | Phase 3 OCR extraction, CV quality, Aadhaar redaction, consistency checks, reviewer corrections |
+| `docs/PHASE4.md` | Phase 4 versioned deterministic rules engine, reviewer overrides, appeals and reapplications |
 | `docs/phase0/` | Audit, requirements and architecture plan |
 | `docs/source_materials/` | Business source package (rulebook, regulatory matrix, specs, datasets) |
 | `legacy/` | Original single-file prototype and SQLite backend |

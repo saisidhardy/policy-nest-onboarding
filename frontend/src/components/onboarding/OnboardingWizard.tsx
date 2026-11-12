@@ -9,7 +9,7 @@ import { Alert, Button, PageHeader } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { WIZARD_STEPS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { ApplicationDetail } from "@/lib/types";
+import type { ApplicationDetail, RuleExecution } from "@/lib/types";
 import { AddressStep } from "./AddressStep";
 import { ApplicationStatusBadge } from "./ApplicationTracker";
 import { BankStep } from "./BankStep";
@@ -74,8 +74,13 @@ export function OnboardingWizard({
         method: "POST",
         body: consents,
       });
-      onUpdated(submitted);
-      router.push(`/app/applications/${submitted.id}`);
+      await api<RuleExecution>(`/applications/${submitted.id}/evaluate`, {
+        method: "POST",
+        body: { apply_transition: true, trigger_source: "AUTO_SUBMIT" },
+      }).catch(() => null);
+      const updated = await api<ApplicationDetail>(`/applications/${submitted.id}`).catch(() => submitted);
+      onUpdated(updated);
+      router.push(`/app/applications/${updated.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not submit application.");
     } finally {

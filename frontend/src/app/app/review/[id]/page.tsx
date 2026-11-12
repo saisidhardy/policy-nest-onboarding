@@ -3,16 +3,23 @@
 import { ArrowLeft, Eye, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationStatusBadge } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
+import { DecisionHistoryPanel } from "@/components/verification/DecisionHistoryPanel";
 import { VerificationReportPanel } from "@/components/verification/VerificationReportPanel";
 import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { ApplicationDetail, ApplicationDocument, ApplicationVerificationReport } from "@/lib/types";
+import type {
+  ApplicationDecisionSummary,
+  ApplicationDetail,
+  ApplicationDocument,
+  ApplicationVerificationReport,
+} from "@/lib/types";
 
 export default function ReviewerDetailPage() {
   return (
@@ -24,24 +31,33 @@ export default function ReviewerDetailPage() {
 
 function ReviewerDetailInner() {
   const { id } = useParams<{ id: string }>();
+  const { can } = useAuth();
   const [app, setApp] = useState<ApplicationDetail | null>(null);
   const [report, setReport] = useState<ApplicationVerificationReport | null>(null);
+  const [decisionSummary, setDecisionSummary] = useState<ApplicationDecisionSummary | null>(null);
   const [previewDoc, setPreviewDoc] = useState<ApplicationDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    Promise.all([
-      api<ApplicationDetail>(`/applications/${id}`),
-      api<ApplicationVerificationReport>(`/applications/${id}/verification`),
-    ]).then(
-      ([appData, repData]) => {
-        setApp(appData);
-        setReport(repData);
-      },
-      (e) => setError(e instanceof ApiError ? e.message : "Failed to load application verification details."),
-    );
+    try {
+      const [appData, repData, decData] = await Promise.all([
+        api<ApplicationDetail>(`/applications/${id}`),
+        api<ApplicationVerificationReport>(`/applications/${id}/verification`),
+        api<ApplicationDecisionSummary>(`/applications/${id}/decisions`).catch(() => null),
+      ]);
+      setApp(appData);
+      setReport(repData);
+      setDecisionSummary(decData);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Failed to load application verification details.");
+    }
   }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   if (error) {
     return (
@@ -129,6 +145,14 @@ function ReviewerDetailInner() {
           onReportChange={setReport}
           canRunProcessing
           canCorrectFields
+        />
+
+        <DecisionHistoryPanel
+          summary={decisionSummary}
+          onRefresh={load}
+          canEvaluate
+          canDecide={can("application:decide") || can("application:escalate")}
+          canDecideEscalated={can("application:decide_escalated")}
         />
       </div>
 

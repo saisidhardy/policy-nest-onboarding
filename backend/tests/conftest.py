@@ -70,7 +70,8 @@ def clean_tables(migrated_db, tmp_path):
             text(
                 "TRUNCATE users, user_sessions, user_action_tokens, email_deliveries, audit_logs, "
                 "applications, application_documents, application_events, notifications, "
-                "document_extractions, document_field_corrections, verification_checks RESTART IDENTITY CASCADE"
+                "document_extractions, document_field_corrections, verification_checks, "
+                "rule_sets, rule_executions, application_decisions, application_appeals RESTART IDENTITY CASCADE"
             )
         )
         conn.execute(text("ALTER SEQUENCE app_reference_seq RESTART WITH 260001"))

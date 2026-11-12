@@ -3,11 +3,14 @@ from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.email import EmailDelivery
 from app.models.notification import Notification
+from app.models.rules import ApplicationAppeal, ApplicationDecision, RuleExecution, RuleSet
 from app.models.user import Permission, Role, User, UserActionToken, UserSession, role_permissions
 from app.models.verification import DocumentExtraction, DocumentFieldCorrection, VerificationCheck
 
 __all__ = [
     "Application",
+    "ApplicationAppeal",
+    "ApplicationDecision",
     "ApplicationDocument",
     "ApplicationEvent",
     "AuditLog",
@@ -18,6 +21,8 @@ __all__ = [
     "Notification",
     "Permission",
     "Role",
+    "RuleExecution",
+    "RuleSet",
     "User",
     "UserActionToken",
     "UserSession",

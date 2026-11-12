@@ -270,6 +270,8 @@ class ApplicationSummaryOut(BaseModel):
     full_name: str | None
     submitted_at: datetime | None
     last_saved_at: datetime
+    resolution_kind: str | None = None
+    rework_count: int = 0
     created_at: datetime
     updated_at: datetime
     completeness: CompletenessOut
@@ -335,6 +337,10 @@ class ApplicationDetailOut(BaseModel):
     declared_at: datetime | None
     submitted_at: datetime | None
     last_saved_at: datetime
+    parent_application_id: uuid.UUID | None = None
+    resolution_kind: str | None = None
+    reapplication_reason: str | None = None
+    rework_count: int = 0
     created_at: datetime
     updated_at: datetime
 

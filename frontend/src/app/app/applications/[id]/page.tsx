@@ -7,12 +7,18 @@ import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
+import { DecisionHistoryPanel } from "@/components/verification/DecisionHistoryPanel";
 import { VerificationReportPanel } from "@/components/verification/VerificationReportPanel";
 import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { ApplicationDetail, ApplicationDocument, ApplicationVerificationReport } from "@/lib/types";
+import type {
+  ApplicationDecisionSummary,
+  ApplicationDetail,
+  ApplicationDocument,
+  ApplicationVerificationReport,
+} from "@/lib/types";
 
 export default function ApplicationDetailPage() {
   return (
@@ -27,18 +33,21 @@ function ApplicationDetailView() {
   const router = useRouter();
   const [app, setApp] = useState<ApplicationDetail | null>(null);
   const [verification, setVerification] = useState<ApplicationVerificationReport | null>(null);
+  const [decisionSummary, setDecisionSummary] = useState<ApplicationDecisionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<ApplicationDocument | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [data, ver] = await Promise.all([
+      const [data, ver, dec] = await Promise.all([
         api<ApplicationDetail>(`/applications/${id}`),
         api<ApplicationVerificationReport>(`/applications/${id}/verification`).catch(() => null),
+        api<ApplicationDecisionSummary>(`/applications/${id}/decisions`).catch(() => null),
       ]);
       setApp(data);
       setVerification(ver);
+      setDecisionSummary(dec);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to load application.");
@@ -97,6 +106,14 @@ function ApplicationDetailView() {
       />
 
       <ApplicationTracker application={app} />
+
+      <DecisionHistoryPanel
+        summary={decisionSummary}
+        onRefresh={load}
+        onReapplied={(child) => router.push(`/app/onboarding/${child.id}`)}
+        canEvaluate={app.status === "SUBMITTED" || app.status === "REWORK_SUBMITTED"}
+        isApplicantOwner
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

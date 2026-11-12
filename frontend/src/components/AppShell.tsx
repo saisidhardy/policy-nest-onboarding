@@ -12,6 +12,7 @@ import {
   ScrollText,
   Server,
   ShieldCheck,
+  SlidersHorizontal,
   UserCircle,
   Users,
   X,
@@ -42,6 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/app/account", label: "Account & security", icon: UserCircle, permission: "profile:read" },
   { href: "/app/admin/users", label: "Users", icon: Users, permission: "users:read" },
   { href: "/app/admin/roles", label: "Roles & permissions", icon: KeyRound, permission: "roles:read" },
+  { href: "/app/admin/rules", label: "Business rules", icon: SlidersHorizontal, permission: "config:manage" },
   { href: "/app/admin/audit", label: "Audit log", icon: ScrollText, permission: "audit:read" },
   { href: "/app/admin/system", label: "System status", icon: Server, permission: "system:read" },
 ];

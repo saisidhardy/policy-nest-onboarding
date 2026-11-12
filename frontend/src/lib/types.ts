@@ -204,6 +204,8 @@ export interface ApplicationSummary {
   full_name: string | null;
   submitted_at: string | null;
   last_saved_at: string;
+  resolution_kind?: string | null;
+  rework_count?: number;
   created_at: string;
   updated_at: string;
   completeness: CompletenessReport;
@@ -267,6 +269,10 @@ export interface ApplicationDetail {
   declared_at: string | null;
   submitted_at: string | null;
   last_saved_at: string;
+  parent_application_id?: string | null;
+  resolution_kind?: string | null;
+  reapplication_reason?: string | null;
+  rework_count?: number;
   created_at: string;
   updated_at: string;
 
@@ -375,4 +381,124 @@ export interface ApplicationVerificationReport {
   checks: VerificationCheck[];
   corrections: FieldCorrection[];
   summary: VerificationSummary;
+}
+
+export interface RuleSetConfig {
+  min_age_years: number;
+  min_ocr_confidence: number;
+  face_match_auto_pass_threshold: number;
+  face_match_rework_threshold: number;
+  max_rework_cycles_before_human: number;
+  auto_approve_enabled: boolean;
+  auto_reject_statutory: boolean;
+  never_auto_reject_name_mismatch: true;
+  recognized_education_boards: string[];
+  require_all_six_documents: boolean;
+  allow_bank_truncation_match: boolean;
+}
+
+export interface RuleSet {
+  id: string;
+  version: string;
+  name: string;
+  description: string | null;
+  status: string;
+  is_active: boolean;
+  rules_config: RuleSetConfig;
+  created_by_user_id: string | null;
+  activated_by_user_id: string | null;
+  activated_at: string | null;
+  created_at: string;
+}
+
+export interface RuleEvaluationItem {
+  rule_id: string;
+  category: string;
+  name: string;
+  status: "PASS" | "FAIL" | "HUMAN_REVIEW" | "INFO" | "NOT_EVALUATED";
+  severity: "HARD_REJECT" | "REWORK" | "HUMAN_ONLY" | "INFO" | "NONE";
+  reason_code: string | null;
+  explanation: string;
+  evidence: Record<string, unknown>;
+}
+
+export interface ReworkItem {
+  doc_type: string | null;
+  reason_code: string;
+  title_en: string;
+  title_hi: string;
+  action_en: string;
+  action_hi: string;
+}
+
+export interface RiskIndicator {
+  code: string;
+  level: string;
+  message: string;
+}
+
+export interface RuleExecution {
+  id: string;
+  application_id: string;
+  ruleset_id: string;
+  ruleset_version: string;
+  trigger_source: string;
+  triggered_by_user_id: string | null;
+  outcome: string;
+  recommended_status: string;
+  eligibility_status: string;
+  completeness_status: string;
+  consistency_status: string;
+  risk_level: string;
+  auto_pass_eligible: boolean;
+  requires_human_review: boolean;
+  reason_codes: string[];
+  rule_results: RuleEvaluationItem[];
+  rework_items: ReworkItem[];
+  risk_indicators: RiskIndicator[];
+  summary: string;
+  executed_at: string;
+}
+
+export interface ApplicationDecision {
+  id: string;
+  application_id: string;
+  rule_execution_id: string | null;
+  decided_by_user_id: string;
+  decided_by_role: string;
+  decision: string;
+  previous_status: string;
+  new_status: string;
+  is_override: boolean;
+  override_of_outcome: string | null;
+  reason_codes: string[];
+  reason_text: string;
+  rework_items: ReworkItem[];
+  created_at: string;
+}
+
+export interface ApplicationAppeal {
+  id: string;
+  application_id: string;
+  submitted_by_user_id: string;
+  status: string;
+  appeal_reason: string;
+  supporting_notes: string | null;
+  resolution_notes: string | null;
+  resolved_by_user_id: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface ApplicationDecisionSummary {
+  application_id: string;
+  application_status: string;
+  resolution_kind: string | null;
+  parent_application_id: string | null;
+  rework_count: number;
+  active_ruleset_version: string;
+  latest_execution: RuleExecution | null;
+  execution_history: RuleExecution[];
+  decisions: ApplicationDecision[];
+  appeals: ApplicationAppeal[];
 }

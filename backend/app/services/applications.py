@@ -74,9 +74,13 @@ BANK_REQUIRED = (
 _SENSITIVE_AUDIT_FIELDS = {"pan_number", "aadhaar_last4", "mobile", "email", "account_number"}
 
 
-def _generate_reference_code(db: Session) -> str:
+def generate_reference_code(db: Session) -> str:
     seq_val = db.execute(text("SELECT nextval('app_reference_seq')")).scalar_one()
     return f"APP-{int(seq_val)}"
+
+
+def _generate_reference_code(db: Session) -> str:
+    return generate_reference_code(db)
 
 
 def application_resource(app: Application) -> Resource:
@@ -165,6 +169,8 @@ def to_summary(app: Application) -> ApplicationSummaryOut:
         full_name=app.full_name,
         submitted_at=app.submitted_at,
         last_saved_at=app.last_saved_at,
+        resolution_kind=app.resolution_kind,
+        rework_count=app.rework_count,
         created_at=app.created_at,
         updated_at=app.updated_at,
         completeness=compute_completeness(app),
@@ -226,6 +232,10 @@ def to_detail(app: Application) -> ApplicationDetailOut:
         declared_at=app.declared_at,
         submitted_at=app.submitted_at,
         last_saved_at=app.last_saved_at,
+        parent_application_id=app.parent_application_id,
+        resolution_kind=app.resolution_kind,
+        reapplication_reason=app.reapplication_reason,
+        rework_count=app.rework_count,
         created_at=app.created_at,
         updated_at=app.updated_at,
         documents=[DocumentOut.model_validate(d) for d in current],
@@ -410,6 +420,11 @@ def submit_application(
     now = utcnow()
     prev_status = app.status
     next_status = "REWORK_SUBMITTED" if prev_status == "NEEDS_MORE_INFO" else "SUBMITTED"
+    if prev_status == "NEEDS_MORE_INFO":
+        app.rework_count = (app.rework_count or 0) + 1
+        app.resolution_kind = "CORRECTION"
+    else:
+        app.resolution_kind = app.resolution_kind or "INITIAL"
 
     app.consent_terms = True
     app.consent_kyc_processing = True
@@ -455,9 +470,11 @@ def submit_application(
         details={"reference_code": app.reference_code, "from_status": prev_status, "to_status": next_status},
     )
     db.flush()
+    from app.services import rules_engine
     from app.services import verification as verification_service
 
     verification_service.run_document_intelligence(db, app, auth, request)
+    rules_engine.evaluate_application(db, app, auth, request, trigger_source="AUTO_SUBMIT", apply_transition=False)
     return get_application(db, app.id)
 
 
