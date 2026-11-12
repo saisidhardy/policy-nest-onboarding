@@ -99,15 +99,15 @@ function AdminOverview() {
 const STAGES: Record<string, { title: string; body: string }> = {
   APPLICANT: {
     title: "Onboarding application",
-    body: "Document upload, identity, bank and education verification open in the next release. You'll be able to start your application from this page once it is available.",
+    body: "Create your application, upload the six required documents, submit for review, then complete training and the assessment.",
   },
   REVIEWER: {
     title: "Review queue",
-    body: "The verification cockpit and review queue open in a later release. Your access scope below determines which applications you will see.",
+    body: "Open the review queue to inspect, correct, approve, reject or escalate applications within your assigned scope.",
   },
   SENIOR_REVIEWER: {
     title: "Escalations and fraud desk",
-    body: "Escalated cases and fraud-desk referrals open in a later release. Your access scope below determines which applications you will see.",
+    body: "Open the review queue to handle escalated and higher-sensitivity cases within your clearance.",
   },
 };
 
@@ -136,7 +136,7 @@ function MemberOverview({ me }: { me: Me }) {
         <Card>
           <CardHeader title={stage.title} />
           <div className="space-y-3 px-5 py-4 text-sm text-slate-600">
-            <Badge tone="neutral">Not yet available</Badge>
+            <Badge tone="success">Available</Badge>
             <p>{stage.body}</p>
           </div>
         </Card>

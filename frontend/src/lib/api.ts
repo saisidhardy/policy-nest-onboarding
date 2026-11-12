@@ -94,3 +94,16 @@ export async function api<T>(
   }
   return data as T;
 }
+
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = readCookie(CSRF_COOKIE);
+  if (token) headers["X-CSRF-Token"] = token;
+  const res = await fetch(`/api/v1${path}`, { method: "POST", headers, body: form, credentials: "same-origin" });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = data?.error;
+    throw new ApiError(res.status, err?.code ?? `HTTP_${res.status}`, err?.message ?? "Upload failed.", err?.details);
+  }
+  return data as T;
+}

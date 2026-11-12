@@ -128,3 +128,27 @@ export interface EmailDispatchResult {
   message: string;
   email_delivery: string;
 }
+
+export interface DocumentRecord {
+  id: string; document_type: string; version: number; filename: string; content_type: string;
+  byte_size: number; status: string; quality_result: Record<string, unknown>; uploaded_at: string;
+}
+
+export interface ApplicationRecord {
+  id: string; applicant_id: string; reference: string; status: string; current_step: number;
+  region: string | null; sensitivity: number; date_of_birth: string | null; pan_number: string | null;
+  aadhaar_last4: string | null; address: Record<string, string>; education: Record<string, string>;
+  bank_details: Record<string, string>; declarations: Record<string, boolean>; rule_result: Record<string, unknown>;
+  submitted_at: string | null; created_at: string; updated_at: string; documents: DocumentRecord[];
+  applicant_name?: string; applicant_email?: string;
+}
+
+export interface TrainingModule {
+  code: string; title: string; required_minutes: number; minutes_completed: number; completed: boolean;
+}
+
+export interface OperationsSummary {
+  total_applications: number; by_status: Record<string, number>; submitted_last_30_days: number;
+  average_review_hours: number | null; pending_review: number; corrections_open: number;
+  certificates_issued: number; verification_statuses: Record<string, number>;
+}

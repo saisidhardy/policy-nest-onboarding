@@ -1,0 +1,8 @@
+"use client";
+
+import { useEffect,useState } from "react";
+import { Alert, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
+import { api } from "@/lib/api";
+import type { OperationsSummary } from "@/lib/types";
+
+export default function OperationsPage(){const[data,setData]=useState<OperationsSummary|null>(null);const[error,setError]=useState<string|null>(null);useEffect(()=>{api<OperationsSummary>("/operations/summary").then(setData,(e)=>setError(e instanceof Error?e.message:"Unable to load metrics."));},[]);if(error)return<Alert tone="error">{error}</Alert>;if(!data)return<Spinner/>;const stats=[["Total applications",data.total_applications],["Pending review",data.pending_review],["Open corrections",data.corrections_open],["Certificates issued",data.certificates_issued],["Submitted in 30 days",data.submitted_last_30_days],["Average review hours",data.average_review_hours??"—"]];return<div className="space-y-6"><PageHeader title="Operations command centre" description="Live aggregates from the PolicyNest database."/><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{stats.map(([label,value])=><Card key={label as string} className="p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p></Card>)}</div><Card><CardHeader title="Application funnel"/><div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(data.by_status).map(([status,count])=><div key={status} className="rounded-lg bg-slate-50 p-4"><p className="text-xs text-slate-500">{status.replaceAll("_"," ")}</p><p className="mt-1 text-xl font-semibold">{count}</p></div>)}</div></Card></div>}
