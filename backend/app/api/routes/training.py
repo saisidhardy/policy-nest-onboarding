@@ -52,7 +52,9 @@ def _simple_certificate_pdf(lines: list[str]) -> bytes:
 
 
 def _application(db: DB, auth: CurrentAuth) -> Application:
-    application = db.scalar(select(Application).where(Application.applicant_id == auth.user.id).with_for_update())
+    application = db.scalar(
+        select(Application).where(Application.applicant_id == auth.user.id).with_for_update(of=Application)
+    )
     if application is None:
         raise AppError(404, "APPLICATION_NOT_FOUND", "Start an application first.")
     if application.status not in {"KYC_APPROVED", "TRAINING_IN_PROGRESS", "EXAM_ELIGIBLE", "CERTIFIED"}:

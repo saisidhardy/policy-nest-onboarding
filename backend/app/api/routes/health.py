@@ -1,12 +1,12 @@
 from functools import lru_cache
 from pathlib import Path
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from app.core.config import get_settings
 from app.core.db import get_engine
 

@@ -14,6 +14,18 @@
 - Phase 9: existing authentication hardening plus validation, upload controls, ownership enforcement and append-only domain events. External penetration testing and production load testing remain release gates.
 - Phase 10: container definitions exist. Production deployment requires a managed PostgreSQL service, runtime secrets, an SMTP provider and optional regulated verification-provider credentials.
 
+## Verified release evidence
+
+The current branch includes a PostgreSQL-backed integration suite and CI workflow rather than relying on the legacy browser simulation:
+
+- Backend lint and format checks pass.
+- All 29 backend tests pass against PostgreSQL 16.
+- The integration test covers registration, email verification, draft creation, six document uploads, sandbox verification, submission, reviewer assignment, correction, resubmission, approval, four training modules, a 50-question passing assessment, certificate PDF download and operations metrics.
+- Frontend ESLint and TypeScript checks pass locally.
+- GitHub Actions runs backend lint/tests plus frontend lint, typecheck, tests and production build on every pull request and on pushes to `master`.
+
+The Embarko URL is a hosted visual preview of `legacy/static`. It is useful for design review, but it is not the PostgreSQL-backed internal-pilot application and must not be treated as a production deployment.
+
 ## Production gates
 
 The application is feature-complete for an internal pilot. The following are external operational dependencies rather than code simulations:
@@ -23,4 +35,4 @@ The application is feature-complete for an internal pilot. The following are ext
 3. Contract and configure any live DigiLocker, PAN, penny-drop or biometric provider before enabling those adapters.
 4. Have compliance approve the training content and assessment bank before treating generated certificates as regulatory evidence.
 5. Perform penetration, accessibility, backup/restore and load tests in the selected production environment.
-
+6. Deploy both the FastAPI service and Next.js application to a host with managed PostgreSQL, run migrations, and complete the authenticated smoke workflow.
