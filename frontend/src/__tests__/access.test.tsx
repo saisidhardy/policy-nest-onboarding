@@ -23,9 +23,20 @@ describe("navigation visibility", () => {
       "Notifications",
       "Account & security",
     ]);
-    const admin = visibleNav(["profile:read", "users:read", "roles:read", "config:manage", "audit:read", "system:read"]).map((i) => i.label);
+    const admin = visibleNav([
+      "profile:read",
+      "users:read",
+      "users:manage",
+      "roles:read",
+      "config:manage",
+      "audit:read",
+      "system:read",
+    ]).map((i) => i.label);
     expect(admin).toContain("Users");
+    expect(admin).toContain("Reviewers");
+    expect(admin).toContain("Applications");
     expect(admin).toContain("Business rules");
+    expect(admin).toContain("Integrations & LMS");
     expect(admin).toContain("Audit log");
     expect(admin).toContain("System status");
     expect(admin).not.toContain("Onboarding");

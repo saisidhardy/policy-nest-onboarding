@@ -10,7 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { REQUIRED_DOCUMENTS, WIZARD_STEPS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
-import type { AdminStats, ApplicationDetail, Me, NotificationsPage } from "@/lib/types";
+import type { AdminDashboard, ApplicationDetail, Me, NotificationsPage } from "@/lib/types";
 import { AuditTable } from "./admin/audit/AuditTable";
 
 export default function OverviewPage() {
@@ -250,46 +250,89 @@ function Stat({ label, value, href }: { label: string; value: number | string; h
 }
 
 function AdminOverview() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api<AdminStats>("/admin/stats").then(setStats, (e) => setError(e instanceof ApiError ? e.message : "Failed to load statistics."));
+    api<AdminDashboard>("/admin/dashboard").then(
+      setDash,
+      (e) => setError(e instanceof ApiError ? e.message : "Failed to load dashboard."),
+    );
   }, []);
   if (error) return <Alert tone="error">{error}</Alert>;
-  if (!stats) return <Spinner />;
-  const total = Object.values(stats.users_by_role).reduce((a, b) => a + b, 0);
+  if (!dash) return <Spinner />;
+  const { stats } = dash;
+  const totalUsers = Object.values(stats.users_by_role).reduce((a, b) => a + b, 0);
+  const configuredIntegrations = dash.integrations.filter((i) => i.status === "CONFIGURED").length;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Total users" value={total} href="/app/admin/users" />
+        <Stat label="Total applications" value={dash.total_applications} href="/app/admin/applications" />
+        <Stat label="Escalated cases" value={dash.escalated_applications} href="/app/admin/applications?escalated=1" />
+        <Stat label="Certified POSPs" value={dash.training_certified_count} href="/app/training" />
+        <Stat
+          label="Configured adapters"
+          value={`${configuredIntegrations}/${dash.integrations.length}`}
+          href="/app/admin/integrations"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total users" value={totalUsers} href="/app/admin/users" />
+        <Stat label="Active reviewers" value={dash.reviewer_count + dash.senior_reviewer_count} href="/app/admin/reviewers" />
         <Stat label="Active sessions" value={stats.active_sessions} />
-        <Stat label="Registrations (7 days)" value={stats.registrations_last_7_days} />
         <Stat label="Failed sign-ins (24h)" value={stats.failed_logins_last_24h} href="/app/admin/audit?action=auth.login&outcome=FAILURE" />
       </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader title="Users by role" />
-          <dl className="divide-y divide-slate-100">
-            {Object.entries(stats.users_by_role).map(([role, n]) => (
-              <div key={role} className="flex justify-between px-5 py-3 text-sm">
-                <dt className="text-slate-600">{role.replace("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</dt>
-                <dd className="font-medium text-slate-900">{n}</dd>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader
+              title="Applications by status"
+              action={
+                <Link href="/app/admin/applications" className="text-xs font-medium text-brand-700 hover:underline">
+                  Manage
+                </Link>
+              }
+            />
+            <dl className="divide-y divide-slate-100">
+              {Object.keys(dash.applications_by_status).length === 0 ? (
+                <p className="px-5 py-4 text-sm text-slate-500">No applications created yet.</p>
+              ) : (
+                Object.entries(dash.applications_by_status).map(([st, n]) => (
+                  <div key={st} className="flex justify-between px-5 py-2.5 text-sm">
+                    <dt className="text-slate-600">{st.replaceAll("_", " ")}</dt>
+                    <dd className="font-medium text-slate-900">{n}</dd>
+                  </div>
+                ))
+              )}
+              {dash.training_sync_failed_count > 0 && (
+                <div className="flex justify-between bg-amber-50/70 px-5 py-2.5 text-sm">
+                  <dt className="font-medium text-amber-800">LMS sync retries pending</dt>
+                  <dd className="font-semibold text-amber-900">{dash.training_sync_failed_count}</dd>
+                </div>
+              )}
+            </dl>
+          </Card>
+
+          <Card>
+            <CardHeader title="Users by role" />
+            <dl className="divide-y divide-slate-100">
+              {Object.entries(stats.users_by_role).map(([role, n]) => (
+                <div key={role} className="flex justify-between px-5 py-2.5 text-sm">
+                  <dt className="text-slate-600">{role.replace("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</dt>
+                  <dd className="font-medium text-slate-900">{n}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between px-5 py-2.5 text-sm">
+                <dt className="text-slate-600">Unverified / inactive</dt>
+                <dd className="font-medium text-slate-900">
+                  {stats.unverified_users} / {stats.inactive_users}
+                </dd>
               </div>
-            ))}
-            <div className="flex justify-between px-5 py-3 text-sm">
-              <dt className="text-slate-600">Unverified email</dt>
-              <dd className="font-medium text-slate-900">{stats.unverified_users}</dd>
-            </div>
-            <div className="flex justify-between px-5 py-3 text-sm">
-              <dt className="text-slate-600">Pending invitations</dt>
-              <dd className="font-medium text-slate-900">{stats.pending_invitations}</dd>
-            </div>
-            <div className="flex justify-between px-5 py-3 text-sm">
-              <dt className="text-slate-600">Deactivated</dt>
-              <dd className="font-medium text-slate-900">{stats.inactive_users}</dd>
-            </div>
-          </dl>
-        </Card>
+            </dl>
+          </Card>
+        </div>
+
         <Card className="lg:col-span-2">
           <CardHeader
             title="Recent activity"
@@ -308,12 +351,12 @@ function AdminOverview() {
 
 const STAFF_STAGES: Record<string, { title: string; body: string }> = {
   REVIEWER: {
-    title: "Document intelligence desk",
-    body: "Inspect OCR extractions, CV image quality, redacted Aadhaar previews, cross-document checks, and correct extracted fields. Full decision routing arrives in Phase 5.",
+    title: "Reviewer verification desk",
+    body: "Inspect OCR extractions, image quality, redacted Aadhaar previews, deterministic rules, and submit KYC verification decisions.",
   },
   SENIOR_REVIEWER: {
-    title: "Document intelligence & escalations",
-    body: "Inspect regional applications, OCR extractions, redacted Aadhaar copies, and extracted field corrections. Escalation decisions arrive in Phase 5.",
+    title: "Senior reviewer & escalation desk",
+    body: "Review escalated cases, fraud flags, rule overrides, formal appeals, and regional operational analytics.",
   },
 };
 

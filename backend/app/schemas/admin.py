@@ -99,3 +99,170 @@ class AdminStatsOut(BaseModel):
     registrations_last_7_days: int
     failed_logins_last_24h: int
     recent_audit: list[AuditLogOut]
+
+
+class AdminDashboardOut(BaseModel):
+    stats: AdminStatsOut
+    total_applications: int
+    applications_by_status: dict[str, int]
+    escalated_applications: int
+    training_certified_count: int
+    training_sync_failed_count: int
+    integrations: list[IntegrationStatus]
+    reviewer_count: int
+    senior_reviewer_count: int
+
+
+class ReviewerWorkloadOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: RoleCode
+    region: str | None
+    clearance_level: int
+    is_active: bool
+    email_verified: bool
+    active_assigned_count: int
+    escalated_assigned_count: int
+    decisions_made_count: int
+    overrides_count: int
+    corrections_requested_count: int
+    last_login_at: datetime | None
+
+
+class ReassignWorkloadRequest(BaseModel):
+    target_reviewer_id: uuid.UUID | None = None
+    reason: str = Field(min_length=5, max_length=500)
+
+
+class ReassignWorkloadOut(BaseModel):
+    source_reviewer_id: uuid.UUID
+    target_reviewer_id: uuid.UUID | None
+    reassigned_count: int
+
+
+class AdminApplicationItemOut(BaseModel):
+    id: uuid.UUID
+    reference_code: str
+    applicant_id: uuid.UUID
+    applicant_name: str
+    applicant_email: str
+    status: str
+    region: str | None
+    assigned_reviewer_id: uuid.UUID | None
+    assigned_reviewer_name: str | None
+    assigned_reviewer_email: str | None
+    is_escalated: bool
+    fraud_flag: bool
+    training_status: str | None
+    submitted_at: datetime | None
+    updated_at: datetime
+
+
+class AdminApplicationPageOut(BaseModel):
+    items: list[AdminApplicationItemOut]
+    total: int
+    page: int
+    page_size: int
+    counts_by_status: dict[str, int]
+
+
+class AdminAssignReviewerRequest(BaseModel):
+    reviewer_id: uuid.UUID | None = None
+    reason: str = Field(min_length=5, max_length=500)
+
+
+class UpdateRolePermissionsRequest(BaseModel):
+    permission_codes: list[str]
+    reason: str = Field(min_length=5, max_length=500)
+
+
+class LmsConfigOut(BaseModel):
+    lms_provider: str
+    lms_api_base_url: str | None
+    lms_course_code: str
+    lms_required_hours: float
+    lms_passing_score_pct: float
+    lms_timeout_seconds: int
+    lms_exam_cooldown_hours: int
+    lms_certificate_validity_years: int
+    lms_sync_retry_base_seconds: int
+    lms_sync_max_attempts: int
+    has_api_key: bool
+    api_key_hint: str | None
+    has_webhook_secret: bool
+    webhook_secret_hint: str | None
+    source: str
+    updated_at: datetime | None
+
+
+class UpdateLmsConfigRequest(BaseModel):
+    lms_provider: Literal["not_configured", "sandbox", "http_api"]
+    lms_api_base_url: str | None = Field(default=None, max_length=500)
+    lms_course_code: str = Field(min_length=2, max_length=120)
+    lms_required_hours: float = Field(ge=1.0, le=100.0)
+    lms_passing_score_pct: float = Field(ge=1.0, le=100.0)
+    lms_timeout_seconds: int = Field(ge=2, le=120)
+    lms_exam_cooldown_hours: int = Field(ge=0, le=168)
+    lms_certificate_validity_years: int = Field(ge=1, le=20)
+    lms_sync_retry_base_seconds: int = Field(ge=10, le=3600)
+    lms_sync_max_attempts: int = Field(ge=1, le=10)
+    lms_api_key: str | None = Field(default=None, max_length=500)
+    clear_api_key: bool = False
+    lms_webhook_secret: str | None = Field(default=None, max_length=500)
+    clear_webhook_secret: bool = False
+
+
+class IntegrationsConfigOut(BaseModel):
+    ocr_provider: str
+    ai_provider: str
+    gemini_model: str
+    has_gemini_api_key: bool
+    gemini_api_key_hint: str | None
+    ifsc_lookup_enabled: bool
+    pan_verification_provider: str
+    bank_verification_provider: str
+    digilocker_provider: str
+    face_match_provider: str
+    source: str
+    updated_at: datetime | None
+
+
+class UpdateIntegrationsConfigRequest(BaseModel):
+    ocr_provider: Literal["local_tesseract", "none"]
+    ai_provider: Literal["local_heuristic", "gemini"]
+    gemini_model: str = Field(default="gemini-3.8-flash", min_length=2, max_length=120)
+    gemini_api_key: str | None = Field(default=None, max_length=500)
+    clear_gemini_api_key: bool = False
+    ifsc_lookup_enabled: bool = True
+    pan_verification_provider: Literal["not_configured", "sandbox", "protean", "cashfree"]
+    bank_verification_provider: Literal["not_configured", "sandbox", "razorpayx", "cashfree"]
+    digilocker_provider: Literal["not_configured", "sandbox", "negd_oauth"]
+    face_match_provider: Literal["not_configured", "sandbox", "aws_rekognition"]
+
+
+class PlatformConfigOut(BaseModel):
+    public_app_url: str
+    require_email_verification: bool
+    session_idle_minutes: int
+    login_max_failures: int
+    login_lockout_minutes: int
+    max_upload_size_mb: int
+    source: str
+    updated_at: datetime | None
+
+
+class UpdatePlatformConfigRequest(BaseModel):
+    public_app_url: str = Field(min_length=4, max_length=300)
+    require_email_verification: bool
+    session_idle_minutes: int = Field(ge=5, le=1440)
+    login_max_failures: int = Field(ge=3, le=20)
+    login_lockout_minutes: int = Field(ge=1, le=240)
+    max_upload_size_mb: int = Field(ge=1, le=50)
+
+
+class AdminConfigBundleOut(BaseModel):
+    lms: LmsConfigOut
+    integrations: IntegrationsConfigOut
+    platform: PlatformConfigOut
+    integrations_health: list[IntegrationStatus]

@@ -126,7 +126,7 @@ def retry_due_training_syncs(
 @router.post("/training/webhooks/lms", response_model=TrainingRecordOut)
 async def receive_lms_webhook(request: Request, db: DB):
     raw_body = await request.body()
-    ok, reason = lms_adapter.verify_webhook_signature(raw_body, request.headers.get("x-lms-signature"))
+    ok, reason = lms_adapter.verify_webhook_signature(raw_body, request.headers.get("x-lms-signature"), db=db)
     if not ok:
         raise AppError(401, "INVALID_WEBHOOK_SIGNATURE", reason)
     payload = LmsWebhookPayload.model_validate_json(raw_body)

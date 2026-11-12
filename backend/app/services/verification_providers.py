@@ -11,8 +11,10 @@ import re
 from dataclasses import dataclass
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.services.platform_config import get_effective_integrations_config
 
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 
@@ -303,12 +305,11 @@ def check_face_match_adapter(face_detected: bool | None) -> ProviderCheckResult:
     )
 
 
-def get_verification_integration_statuses() -> list[dict[str, str]]:
+def get_verification_integration_statuses(db: Session | None = None) -> list[dict[str, str]]:
     """Return honest live/local/sandbox/unconfigured status entries for Phase 3 & verification providers."""
-    from app.services.ai_assistant import get_ai_assistant
     from app.services.ocr_pipeline import resolve_tesseract_cmd
 
-    s = get_settings()
+    s = get_effective_integrations_config(db)
     statuses: list[dict[str, str]] = []
 
     if s.ocr_provider == "none":
@@ -337,9 +338,8 @@ def get_verification_integration_statuses() -> list[dict[str, str]]:
             }
         )
 
-    assistant = get_ai_assistant()
     if s.ai_provider == "gemini":
-        if assistant.provider_name == "GEMINI":
+        if bool(s.gemini_api_key):
             statuses.append(
                 {
                     "key": "ai_assistant",

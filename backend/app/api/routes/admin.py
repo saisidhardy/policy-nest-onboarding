@@ -343,10 +343,10 @@ def system_health(db: DB, _: AuthContext = Depends(require_permission("system:re
     )
     integrations = (
         [_email_integration(), _storage_integration()]
-        + [IntegrationStatus(**st) for st in get_verification_integration_statuses()]
+        + [IntegrationStatus(**st) for st in get_verification_integration_statuses(db)]
         + [
             IntegrationStatus(
-                key=(lms_st := get_lms_integration_status())["key"],
+                key=(lms_st := get_lms_integration_status(db))["key"],
                 name=lms_st["name"],
                 status=lms_st["status"],
                 mode=lms_st["mode"],

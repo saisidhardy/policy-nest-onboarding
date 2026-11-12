@@ -10,7 +10,6 @@ from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import AuthContext
-from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models import Application, ApplicationEvent, LmsSyncLog, TrainingRecord, User
 from app.models.base import utcnow
@@ -27,6 +26,7 @@ from app.schemas.training import (
 )
 from app.services import audit, lms_adapter
 from app.services.applications import create_notification
+from app.services.platform_config import get_effective_lms_config
 
 ELIGIBLE_APP_STATUSES = {"KYC_APPROVED", "TRAINING_IN_PROGRESS", "CERTIFIED"}
 
@@ -54,7 +54,7 @@ def get_or_create_training_record(db: Session, app: Application) -> TrainingReco
         .where(TrainingRecord.application_id == app.id)
     )
     elig_status, elig_reason = evaluate_eligibility(app)
-    s = get_settings()
+    s = get_effective_lms_config(db)
 
     if record is None:
         record = TrainingRecord(
@@ -100,7 +100,7 @@ def to_training_out(db: Session, app: Application, record: TrainingRecord) -> Tr
         .limit(15)
     ).all()
     modules = record.module_progress or lms_adapter.initial_module_progress()
-    adapter_status = LmsAdapterStatusOut(**lms_adapter.get_lms_integration_status())
+    adapter_status = LmsAdapterStatusOut(**lms_adapter.get_lms_integration_status(db))
     return TrainingRecordOut(
         id=record.id,
         application_id=app.id,
@@ -154,7 +154,7 @@ def _record_sync_failure(
     actor_user_id: uuid.UUID | None = None,
     actor_role: str | None = None,
 ) -> None:
-    s = get_settings()
+    s = get_effective_lms_config(db)
     now = utcnow()
     record.sync_attempts = (record.sync_attempts or 0) + 1
     record.last_sync_at = now
@@ -224,7 +224,7 @@ def _apply_sync_success(
     actor_user_id: uuid.UUID | None = None,
     actor_role: str | None = None,
 ) -> None:
-    s = get_settings()
+    s = get_effective_lms_config(db)
     now = utcnow()
     req_hours = float(record.required_hours or s.lms_required_hours)
 
@@ -444,7 +444,7 @@ def enroll_in_training(
     if elig_status != "ELIGIBLE":
         raise AppError(409, "INELIGIBLE_FOR_TRAINING", elig_reason)
 
-    result = lms_adapter.enroll_applicant(app, record)
+    result = lms_adapter.enroll_applicant(app, record, db=db)
     if result.ok:
         _apply_sync_success(
             db,
@@ -488,7 +488,7 @@ def sync_training_status(
 
     operation = "RETRY_SYNC" if is_retry else "STATUS_SYNC"
     if not record.external_enrollment_id and sandbox_action != "SIMULATE_SYNC_ERROR":
-        result = lms_adapter.enroll_applicant(app, record)
+        result = lms_adapter.enroll_applicant(app, record, db=db)
         if not result.ok:
             _record_sync_failure(
                 db,
@@ -518,7 +518,7 @@ def sync_training_status(
             db.refresh(record)
             return to_training_out(db, app, record)
 
-    result = lms_adapter.fetch_training_status(app, record, sandbox_action=sandbox_action)
+    result = lms_adapter.fetch_training_status(app, record, sandbox_action=sandbox_action, db=db)
     if result.ok:
         _apply_sync_success(
             db,
@@ -569,7 +569,7 @@ def process_inbound_webhook(
     if elig_status != "ELIGIBLE":
         raise AppError(409, "INELIGIBLE_FOR_TRAINING", elig_reason)
 
-    s = get_settings()
+    s = get_effective_lms_config(db)
     result = lms_adapter.LmsSyncResult(
         ok=True,
         provider_name=s.lms_provider if s.lms_provider != "not_configured" else "external_webhook",
@@ -685,7 +685,7 @@ def list_training_overview(
     ]
 
     return TrainingOverviewOut(
-        adapter_status=LmsAdapterStatusOut(**lms_adapter.get_lms_integration_status()),
+        adapter_status=LmsAdapterStatusOut(**lms_adapter.get_lms_integration_status(db)),
         kyc_approved_awaiting_training=kyc_awaiting,
         training_in_progress_count=in_progress,
         training_completed_awaiting_exam=awaiting_exam,

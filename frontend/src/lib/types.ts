@@ -739,3 +739,116 @@ export interface BatchRetryOut {
   failed: number;
   message: string;
 }
+
+export interface AdminDashboard {
+  stats: AdminStats;
+  total_applications: number;
+  applications_by_status: Record<string, number>;
+  escalated_applications: number;
+  training_certified_count: number;
+  training_sync_failed_count: number;
+  integrations: IntegrationStatus[];
+  reviewer_count: number;
+  senior_reviewer_count: number;
+}
+
+export interface ReviewerWorkload {
+  id: string;
+  email: string;
+  full_name: string;
+  role: RoleCode;
+  region: string | null;
+  clearance_level: number;
+  is_active: boolean;
+  email_verified: boolean;
+  active_assigned_count: number;
+  escalated_assigned_count: number;
+  decisions_made_count: number;
+  overrides_count: number;
+  corrections_requested_count: number;
+  last_login_at: string | null;
+}
+
+export interface ReassignWorkloadOut {
+  source_reviewer_id: string;
+  target_reviewer_id: string | null;
+  reassigned_count: number;
+}
+
+export interface AdminApplicationItem {
+  id: string;
+  reference_code: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_email: string;
+  status: string;
+  region: string | null;
+  assigned_reviewer_id: string | null;
+  assigned_reviewer_name: string | null;
+  assigned_reviewer_email: string | null;
+  is_escalated: boolean;
+  fraud_flag: boolean;
+  training_status: string | null;
+  submitted_at: string | null;
+  updated_at: string;
+}
+
+export interface AdminApplicationPage {
+  items: AdminApplicationItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  counts_by_status: Record<string, number>;
+}
+
+export interface LmsConfig {
+  lms_provider: "not_configured" | "sandbox" | "http_api" | string;
+  lms_api_base_url: string | null;
+  lms_course_code: string;
+  lms_required_hours: number;
+  lms_passing_score_pct: number;
+  lms_timeout_seconds: number;
+  lms_exam_cooldown_hours: number;
+  lms_certificate_validity_years: number;
+  lms_sync_retry_base_seconds: number;
+  lms_sync_max_attempts: number;
+  has_api_key: boolean;
+  api_key_hint: string | null;
+  has_webhook_secret: boolean;
+  webhook_secret_hint: string | null;
+  source: "database" | "environment" | string;
+  updated_at: string | null;
+}
+
+export interface IntegrationsConfig {
+  ocr_provider: "local_tesseract" | "none" | string;
+  ai_provider: "local_heuristic" | "gemini" | string;
+  gemini_model: string;
+  has_gemini_api_key: boolean;
+  gemini_api_key_hint: string | null;
+  ifsc_lookup_enabled: boolean;
+  pan_verification_provider: string;
+  bank_verification_provider: string;
+  digilocker_provider: string;
+  face_match_provider: string;
+  source: "database" | "environment" | string;
+  updated_at: string | null;
+}
+
+export interface PlatformConfig {
+  public_app_url: string;
+  require_email_verification: boolean;
+  session_idle_minutes: number;
+  login_max_failures: number;
+  login_lockout_minutes: number;
+  max_upload_size_mb: number;
+  source: "database" | "environment" | string;
+  updated_at: string | null;
+}
+
+export interface AdminConfigBundle {
+  lms: LmsConfig;
+  integrations: IntegrationsConfig;
+  platform: PlatformConfig;
+  integrations_health: IntegrationStatus[];
+}

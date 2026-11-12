@@ -1,6 +1,7 @@
 from app.models.application import Application, ApplicationDocument, ApplicationEvent
 from app.models.audit import AuditLog
 from app.models.base import Base
+from app.models.config_store import SystemConfig
 from app.models.email import EmailDelivery
 from app.models.notification import Notification
 from app.models.rules import ApplicationAppeal, ApplicationDecision, RuleExecution, RuleSet
@@ -25,6 +26,7 @@ __all__ = [
     "Role",
     "RuleExecution",
     "RuleSet",
+    "SystemConfig",
     "TrainingRecord",
     "User",
     "UserActionToken",

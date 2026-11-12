@@ -13,12 +13,14 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import constant_time_equals
 from app.models import Application
 from app.models.base import utcnow
 from app.models.training import TrainingRecord
+from app.services.platform_config import EffectiveLmsConfig, get_effective_lms_config
 
 # Statutory IRDAI 15.0-hour POSP training curriculum (IRDAI/INT/GDL/ECM/044/03/2017 §5)
 IRDAI_POSP_MODULES: tuple[tuple[str, str, float], ...] = (
@@ -56,8 +58,8 @@ def distribute_module_hours(completed_hours: float) -> list[dict[str, Any]]:
     return out
 
 
-def get_lms_integration_status() -> dict[str, Any]:
-    s = get_settings()
+def get_lms_integration_status(db: Session | None = None) -> dict[str, Any]:
+    s = get_effective_lms_config(db)
     webhook_ok = bool(s.lms_webhook_secret)
     if s.lms_provider == "not_configured":
         return {
@@ -106,8 +108,10 @@ def get_lms_integration_status() -> dict[str, Any]:
     }
 
 
-def verify_webhook_signature(raw_body: bytes, signature_header: str | None) -> tuple[bool, str]:
-    s = get_settings()
+def verify_webhook_signature(
+    raw_body: bytes, signature_header: str | None, db: Session | None = None
+) -> tuple[bool, str]:
+    s = get_effective_lms_config(db)
     if not s.lms_webhook_secret:
         return False, "LMS_WEBHOOK_SECRET is not configured on this PolicyNest instance."
     if not signature_header:
@@ -148,16 +152,16 @@ class LmsSyncResult:
     response_payload: dict[str, Any] = field(default_factory=dict)
 
 
-def _auth_headers() -> dict[str, str]:
-    s = get_settings()
+def _auth_headers(s: EffectiveLmsConfig) -> dict[str, str]:
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     if s.lms_api_key:
         headers["Authorization"] = f"Bearer {s.lms_api_key}"
     return headers
 
 
-def enroll_applicant(app: Application, record: TrainingRecord) -> LmsSyncResult:
-    s = get_settings()
+def enroll_applicant(app: Application, record: TrainingRecord, db: Session | None = None) -> LmsSyncResult:
+    env_s = get_settings()
+    s = get_effective_lms_config(db, env_s)
     # Never send raw PAN, Aadhaar, or bank secrets to third-party LMS endpoints.
     req_payload = {
         "reference_code": app.reference_code,
@@ -184,7 +188,7 @@ def enroll_applicant(app: Application, record: TrainingRecord) -> LmsSyncResult:
         )
 
     if s.lms_provider == "sandbox":
-        if s.app_env == "production":
+        if env_s.app_env == "production":
             return LmsSyncResult(
                 ok=False,
                 provider_name="sandbox_lms",
@@ -196,7 +200,7 @@ def enroll_applicant(app: Application, record: TrainingRecord) -> LmsSyncResult:
                 request_payload=req_payload,
             )
         ext_id = record.external_enrollment_id or f"SBX-{app.reference_code}"
-        launch_url = f"{s.public_app_url.rstrip('/')}/app/training?enrollment={ext_id}"
+        launch_url = f"{env_s.public_app_url.rstrip('/')}/app/training?enrollment={ext_id}"
         return LmsSyncResult(
             ok=True,
             provider_name="sandbox_lms",
@@ -233,7 +237,7 @@ def enroll_applicant(app: Application, record: TrainingRecord) -> LmsSyncResult:
 
     endpoint = f"{s.lms_api_base_url.rstrip('/')}/enrollments"
     try:
-        resp = httpx.post(endpoint, json=req_payload, headers=_auth_headers(), timeout=float(s.lms_timeout_seconds))
+        resp = httpx.post(endpoint, json=req_payload, headers=_auth_headers(s), timeout=float(s.lms_timeout_seconds))
     except httpx.TimeoutException:
         return LmsSyncResult(
             ok=False,
@@ -324,8 +328,10 @@ def fetch_training_status(
     record: TrainingRecord,
     *,
     sandbox_action: str | None = None,
+    db: Session | None = None,
 ) -> LmsSyncResult:
-    s = get_settings()
+    env_s = get_settings()
+    s = get_effective_lms_config(db, env_s)
     req_payload = {
         "reference_code": app.reference_code,
         "external_enrollment_id": record.external_enrollment_id,
@@ -346,7 +352,7 @@ def fetch_training_status(
         )
 
     if s.lms_provider == "sandbox":
-        if s.app_env == "production":
+        if env_s.app_env == "production":
             return LmsSyncResult(
                 ok=False,
                 provider_name="sandbox_lms",
@@ -418,7 +424,7 @@ def fetch_training_status(
             http_status=200,
             external_enrollment_id=record.external_enrollment_id or f"SBX-{app.reference_code}",
             lms_launch_url=record.lms_launch_url
-            or f"{s.public_app_url.rstrip('/')}/app/training?enrollment=SBX-{app.reference_code}",
+            or f"{env_s.public_app_url.rstrip('/')}/app/training?enrollment=SBX-{app.reference_code}",
             enrollment_status=enrollment_status,
             completed_hours=current_hours,
             module_progress=distribute_module_hours(current_hours),
@@ -452,11 +458,11 @@ def fetch_training_status(
             request_payload=req_payload,
         )
     if not record.external_enrollment_id:
-        return enroll_applicant(app, record)
+        return enroll_applicant(app, record, db=db)
 
     endpoint = f"{s.lms_api_base_url.rstrip('/')}/enrollments/{record.external_enrollment_id}/status"
     try:
-        resp = httpx.get(endpoint, headers=_auth_headers(), timeout=float(s.lms_timeout_seconds))
+        resp = httpx.get(endpoint, headers=_auth_headers(s), timeout=float(s.lms_timeout_seconds))
     except httpx.TimeoutException:
         return LmsSyncResult(
             ok=False,
