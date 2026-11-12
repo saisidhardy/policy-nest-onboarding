@@ -73,7 +73,7 @@ def review_detail(
 
 @router.post("/{application_id}/actions", response_model=ApplicationOut)
 def review_action(application_id: uuid.UUID, body: ReviewActionIn, request: Request, db: DB, auth: CurrentAuth):
-    application = db.scalar(select(Application).where(Application.id == application_id).with_for_update())
+    application = db.scalar(select(Application).where(Application.id == application_id).with_for_update(of=Application))
     if application is None:
         raise AppError(404, "APPLICATION_NOT_FOUND", "Application not found.")
     permission = {

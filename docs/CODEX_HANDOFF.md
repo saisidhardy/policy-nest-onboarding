@@ -9,10 +9,20 @@
 
 PolicyNest is **feature-complete for an internal pilot**, but it is not yet a production-certified POSP platform.
 
-- Internal-pilot MVP: approximately **80% complete / 20% pending**.
-- Full Phase 0-10 production roadmap: approximately **60% complete / 40% pending**.
+- Internal-pilot MVP: approximately **90% complete / 10% pending**.
+- Full Phase 0-10 production roadmap: approximately **65% complete / 35% pending**.
 - Core workflows implemented: authentication, applicant record, draft/save/submit, document uploads, deterministic validation, review decisions, training, exam, certificate, operations aggregates, RBAC/ABAC, and audit/domain events.
-- Main gaps: real OCR and cross-document reasoning, contracted external verification providers, deeper reviewer and analytics experiences, end-to-end/security/load/accessibility testing, approved regulatory content, and production deployment.
+- Main gaps: browser E2E coverage, real OCR and cross-document reasoning, contracted external verification providers, deeper reviewer and analytics experiences, security/load/accessibility testing, approved regulatory content, and production deployment of the database-backed stack.
+
+## Latest verification snapshot
+
+- PostgreSQL 16 integration environment created and both Alembic migrations exercised.
+- Backend Ruff lint and format checks pass.
+- Backend tests: **29 passed**, including a complete applicant/reviewer/training/certificate integration journey.
+- Frontend ESLint and TypeScript checks pass locally.
+- Frontend Vitest and production build are defined in CI; the local managed Windows sandbox blocks `esbuild` child-process startup with `spawn EPERM`, so those two results must be taken from GitHub Actions rather than reported as locally passing.
+- `.github/workflows/ci.yml` provides PostgreSQL 16 and runs the complete backend and frontend check matrix.
+- `https://policynest-saisidhardy-mvp.embarko.app` hosts only the legacy static visual preview. It is not the secure FastAPI/Next.js/PostgreSQL application.
 
 These percentages are delivery estimates based on the original acceptance criteria, not source-line counts. A phase with a working vertical slice is not marked 100% when the original plan requires external validation, richer algorithms, or production evidence.
 
@@ -21,7 +31,7 @@ These percentages are delivery estimates based on the original acceptance criter
 | Phase | Estimated done | What is implemented | What remains |
 | --- | ---: | --- | --- |
 | 0 — Audit and architecture | 100% | Requirements, source inventory, architecture, implementation plan | Keep documents synchronized with future changes |
-| 1 — Database and core auth | 90% | PostgreSQL, Alembic, authentication, sessions, CSRF, roles, ABAC foundations, audit logs, administration | Run the complete PostgreSQL integration suite in CI; verify every acceptance statement against deployed behavior |
+| 1 — Database and core auth | 95% | PostgreSQL, Alembic, authentication, sessions, CSRF, roles, ABAC foundations, audit logs, administration, PostgreSQL integration tests and CI configuration | Confirm the new workflow on GitHub Actions and verify every acceptance statement against deployed behavior |
 | 2 — Applicant lifecycle | 75% | One application per applicant, draft persistence, personal/address/education/bank data, eligibility checks, submission and status | Convert the current form into the full guided multi-step experience; add stronger inline validation, autosave/resume UX, biometric/e-sign steps, and browser tests |
 | 3 — Document processing | 50% | Versioned private uploads, 10 MB limit, magic-byte/MIME checks, PDF/image validation, deterministic image-quality checks | Real OCR with confidence values, orientation/cropping handling, production object storage, malware scanning, and benchmarked OpenCV-quality thresholds |
 | 4 — Rulebook and entity reasoning | 30% | Deterministic submission validation and durable outcomes | Eight-tier name matching, cross-document DOB/name/entity reasoning, complete Rulebook v3.2, benchmark evaluation, and governed ML inference if still required |
@@ -29,8 +39,8 @@ These percentages are delivery estimates based on the original acceptance criter
 | 6 — Corrections and review cockpit | 70% | Region/clearance-filtered queue, assignment, consolidated correction requests, approval, rejection, escalation, immutable decisions | Split-screen document viewer, OCR override UI, richer filters/SLA views, bilingual notification templates, and reviewer productivity tests |
 | 7 — Training, exam, certificate | 70% | Four 225-minute modules, 50-question assessment, 70% pass threshold, gated access, sealed PDF certificate | Compliance-approved curriculum/question bank, retake/cooldown policy, stronger anti-cheating controls, certificate verification page, and official visual/signature assets |
 | 8 — Operations and telemetry | 40% | Database-backed application/review/correction/verification/certificate aggregates | Active-session telemetry, conversion/drop-off analytics, reviewer utilization, queue aging/SLA alerts, model observatory, exports, and alerting |
-| 9 — Security and QA | 50% | Secure cookie/config checks, ownership enforcement, upload controls, validation, audit/domain events, unit checks, lint/type checks | PostgreSQL integration CI, browser E2E, IDOR/XSS/SQLi/rate-limit testing, penetration test, accessibility audit, load test, backup/restore exercise, and dependency monitoring |
-| 10 — Deployment and handover | 40% | Docker definitions, environment template, runbook basics, release-status document, code merged to GitHub | Managed PostgreSQL, runtime secrets, SMTP, HTTPS hosting, migrations, monitoring, backups, rollback, smoke tests, and final production runbook |
+| 9 — Security and QA | 60% | Secure cookie/config checks, ownership enforcement, upload controls, validation, audit/domain events, PostgreSQL integration coverage, lint/type checks and CI configuration | Browser E2E, IDOR/XSS/SQLi/rate-limit testing, penetration test, accessibility audit, load test, backup/restore exercise, and dependency monitoring |
+| 10 — Deployment and handover | 45% | Docker definitions, environment template, runbook basics, release-status document, merged MVP code and an explicitly labelled static visual preview | Managed PostgreSQL, database-backed HTTPS hosting, runtime secrets, SMTP, migrations, monitoring, backups, rollback, smoke tests, and final production runbook |
 
 ## Implemented source map
 
