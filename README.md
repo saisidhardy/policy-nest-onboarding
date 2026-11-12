@@ -2,7 +2,7 @@
 
 AI-first POSP (Point of Sales Person) onboarding platform for an insurance intermediary.
 
-This repository implements **Phase 1 (Platform Foundation)**, **Phase 2 (Applicant Portal & Onboarding)**, **Phase 3 (Document Intelligence & Verification)**, **Phase 4 (Rules Engine & Decision Management)**, **Phase 5 (Reviewer & Operations Portal)**, **Phase 6 (Training & Certification)**, **Phase 7 (Administrator Portal)**, and **Phase 8 (Integration Completion & Production Hardening)**:
+This repository implements **Phases 1–9** of **PolicyNest** (from Platform Foundation through Testing, Deployment & Final Validation):
 authentication, sessions, RBAC/ABAC, audit logging, admin user management, applicant onboarding wizard,
 private document upload/retrieval, tracking, application history, notifications, OpenCV image quality checks,
 local Tesseract OCR / external HTTP OCR / PyPDF extraction, Aadhaar text masking and image redaction, 8-tier Indian name matching,
@@ -12,9 +12,7 @@ deterministic PS-01 v3.2.0 policy rules (`RuleSet`, `RuleExecution`, consolidate
 ABAC-scoped reviewer queues, claim/assignment, side-by-side baseline vs OCR field comparison, Fraud Desk
 escalation/resolution, review history, operational analytics, IRDAI 15-hour LMS training sync & POSP certification,
 Administrator operational oversight (dashboard, reviewer workload reassignment, global application assignment,
-role permission customization, Fernet-encrypted database configuration management), SMS gateway dispatch & retries, signed inbound verification/LMS webhooks with idempotency, and active integration health probing.
-Final deployment hardening, backup runbooks, and full-lifecycle validation follow in Phase 9. The original
-single-file prototype is kept unchanged in [`legacy/`](legacy/).
+role permission customization, Fernet-encrypted database configuration management), SMS gateway dispatch & retries, signed inbound verification/LMS webhooks with idempotency, active integration health probing, hardened production Compose/proxy deployment config, and database backup/migration/operations runbooks. The original single-file prototype is kept unchanged in [`legacy/`](legacy/).
 
 | Path | Contents |
 | --- | --- |
@@ -28,6 +26,12 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 | `docs/PHASE6.md` | Phase 6 LMS training eligibility, adapter boundary, progress/exam sync, retries and POSP certification |
 | `docs/PHASE7.md` | Phase 7 Administrator dashboard, reviewer workloads, application assignment, RBAC customization, config store |
 | `docs/PHASE8.md` | Phase 8 External HTTP adapters, retries/timeouts, SMS gateway, signed webhooks, and active health probing |
+| `docs/PHASE9.md` | Phase 9 End-to-end lifecycle validation, hardening tests, deployment, and runbooks |
+| `docs/DEPLOYMENT.md` | Production Compose overlay, TLS proxy, secret management, and health checks |
+| `docs/BACKUP_AND_MIGRATIONS.md` | PostgreSQL backup/restore scripts and Alembic migration runbook |
+| `docs/OPERATIONS.md` | Integration monitoring, retry queues, webhooks, and security governance runbook |
+| `scripts/` | PostgreSQL backup (`db_backup.sh`, `db_backup.ps1`) and restore (`db_restore.sh`) scripts |
+| `deploy/nginx.conf` | Reference reverse-proxy configuration with security headers |
 | `docs/phase0/` | Audit, requirements and architecture plan |
 | `docs/source_materials/` | Business source package (rulebook, regulatory matrix, specs, datasets) |
 | `legacy/` | Original single-file prototype and SQLite backend |
@@ -38,6 +42,9 @@ single-file prototype is kept unchanged in [`legacy/`](legacy/).
 cp .env.example .env            # then set POSTGRES_PASSWORD and SECRET_KEY (openssl rand -base64 48)
 docker compose up --build
 docker compose exec backend python -m app.cli create-admin --email you@example.com --name "Your Name"
+
+# Production overlay (optional `--profile with-proxy` includes Nginx reverse proxy; see docs/DEPLOYMENT.md)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 - App: http://localhost:3000
