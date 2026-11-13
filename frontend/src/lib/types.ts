@@ -561,6 +561,30 @@ export interface ReviewQueuePage {
   kpis: ReviewQueueKpis;
 }
 
+export interface BreachedApplication {
+  id: string;
+  reference_code: string;
+  status: string;
+  applicant_name: string | null;
+  submitted_at: string | null;
+  wait_time_minutes: number;
+  region: string | null;
+}
+
+export interface ReviewSlaStatus {
+  status: "HEALTHY" | "BREACHED";
+  sla_threshold_minutes: number;
+  total_pending_queue: number;
+  total_unassigned: number;
+  breach_count: number;
+  max_wait_minutes: number;
+  oldest_unassigned_application_id: string | null;
+  oldest_unassigned_submitted_at: string | null;
+  breached_applications: BreachedApplication[];
+  alert_dispatched: boolean;
+  timestamp: string;
+}
+
 export interface ReviewHistoryItem {
   decision_id: string;
   application_id: string;

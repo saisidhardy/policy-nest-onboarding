@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertOctagon, FileCheck2, Search, ShieldAlert, UserCheck } from "lucide-react";
+import { Activity, AlertOctagon, CheckCircle2, Clock, FileCheck2, Search, ShieldAlert, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -11,7 +11,7 @@ import { Alert, Badge, Button, Card, Input, PageHeader, Spinner } from "@/compon
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import type { ReviewQueueItem, ReviewQueuePage } from "@/lib/types";
+import type { ReviewQueueItem, ReviewQueuePage, ReviewSlaStatus } from "@/lib/types";
 
 type QueueView = "pending" | "assigned_to_me" | "unassigned" | "escalated" | "fraud" | "open_appeals" | "all";
 
@@ -26,6 +26,7 @@ export default function ReviewerQueuePage() {
 function ReviewerQueueInner() {
   const { me, can } = useAuth();
   const [data, setData] = useState<ReviewQueuePage | null>(null);
+  const [sla, setSla] = useState<ReviewSlaStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -38,18 +39,22 @@ function ReviewerQueueInner() {
 
   const load = useCallback(async () => {
     try {
-      const res = await api<ReviewQueuePage>("/review/queue", {
-        query: {
-          queue_view: queueView,
-          q: search.trim() || undefined,
-          status: statusFilter !== "ALL" ? statusFilter : undefined,
-          outcome: outcomeFilter !== "ALL" ? outcomeFilter : undefined,
-          sort_by: sortBy,
-          page,
-          page_size: 20,
-        },
-      });
+      const [res, slaRes] = await Promise.all([
+        api<ReviewQueuePage>("/review/queue", {
+          query: {
+            queue_view: queueView,
+            q: search.trim() || undefined,
+            status: statusFilter !== "ALL" ? statusFilter : undefined,
+            outcome: outcomeFilter !== "ALL" ? outcomeFilter : undefined,
+            sort_by: sortBy,
+            page,
+            page_size: 20,
+          },
+        }),
+        api<ReviewSlaStatus>("/review/sla-status").catch(() => null),
+      ]);
       setData(res);
+      if (slaRes) setSla(slaRes);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to load review queue.");
@@ -98,6 +103,52 @@ function ReviewerQueueInner() {
       <ReviewPortalTabs />
 
       {error && <Alert tone="error" className="mb-4">{error}</Alert>}
+
+      {sla && (
+        <div
+          className={clsx(
+            "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-xs font-medium transition",
+            sla.status === "BREACHED"
+              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/20 dark:text-emerald-200"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {sla.status === "BREACHED" ? (
+              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+            ) : (
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            )}
+            <span className="font-semibold">
+              {sla.status === "BREACHED" ? "Reviewer SLA Alert" : "Queue SLA Operational"}
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span>
+              {sla.status === "BREACHED"
+                ? `${sla.breach_count} unassigned application(s) exceed ${sla.sla_threshold_minutes}m threshold (Max wait: ${sla.max_wait_minutes} min)`
+                : `All unassigned reviews within ${sla.sla_threshold_minutes}m target (Max wait: ${sla.max_wait_minutes} min)`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">
+              Unassigned: <strong>{sla.total_unassigned}</strong>
+            </span>
+            {sla.status === "BREACHED" && queueView !== "unassigned" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-6 px-2 text-[11px]"
+                onClick={() => {
+                  setQueueView("unassigned");
+                  setPage(1);
+                }}
+              >
+                View Breached Applications
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {kpis && (
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
