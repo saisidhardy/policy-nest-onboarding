@@ -541,3 +541,39 @@ def test_lms_webhook_records_delivery_and_admin_probe_monitor(make_client, mailb
             assert "lms-wh-secret" not in json.dumps(entry.details or {})
         cfg_row = db.get(SystemConfig, "lms")
         assert cfg_row is not None
+
+
+def test_resend_email_provider_sends_and_retries_transient_500(monkeypatch):
+    from app.services.email import ResendEmailProvider, get_provider, set_provider_override
+
+    set_provider_override(None)
+    monkeypatch.setenv("RESEND_API_KEY", "re_test_key_12345")
+    monkeypatch.setenv("EMAIL_FROM", "PolicyNest <no-reply@example.com>")
+    get_settings.cache_clear()
+    try:
+        provider = get_provider()
+        assert isinstance(provider, ResendEmailProvider)
+        assert provider.configured is True
+        calls = {"count": 0}
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            calls["count"] += 1
+            assert url == "https://api.resend.com/emails"
+            assert headers["Authorization"] == "Bearer re_test_key_12345"
+            assert json["from"] == "PolicyNest <no-reply@example.com>"
+            if calls["count"] == 1:
+                return httpx.Response(500, json={"message": "temporary"})
+            return httpx.Response(200, json={"id": "msg_123"})
+
+        with patch("app.services.email.httpx.post", side_effect=fake_post):
+            status, attempts, err = deliver_with_retry(
+                provider,
+                OutgoingEmail(to="applicant@example.com", subject="Verify", text="hello", html="<p>hello</p>"),
+                max_attempts=2,
+            )
+        assert status == STATUS_SENT
+        assert attempts == 2
+        assert err is None
+    finally:
+        get_settings.cache_clear()
+

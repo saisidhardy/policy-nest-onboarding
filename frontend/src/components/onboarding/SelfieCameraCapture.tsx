@@ -101,8 +101,14 @@ export function SelfieCameraCapture({
         </button>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
-      <div className="overflow-hidden rounded-lg bg-slate-900">
+      <div className="relative overflow-hidden rounded-lg bg-slate-900">
         <video ref={videoRef} autoPlay playsInline muted className="aspect-video w-full object-cover" />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-4/5 w-36 rounded-[50%] border-2 border-dashed border-emerald-400/90 shadow-[0_0_0_9999px_rgba(15,23,42,0.22)] sm:w-44" />
+        </div>
+        <p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900/80 px-2.5 py-0.5 text-[11px] font-medium text-white">
+          Center your face in the oval with even light
+        </p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={takePhoto} loading={uploading} disabled={!streamReady}>

@@ -188,6 +188,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
+        {process.env.NEXT_PUBLIC_APP_ENV === "staging" && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+            <strong>Staging · Simulated Sandbox Mode:</strong> External government/vendor APIs (PAN, Penny Drop, DigiLocker, LMS) run simulated responses for QA testing. Use{" "}
+            <a href="https://policynest-web.embarko.app" className="underline font-semibold">
+              Production
+            </a>{" "}
+            for live records.
+          </div>
+        )}
         {!me.user.email_verified && <VerificationBanner />}
         {children}
       </main>

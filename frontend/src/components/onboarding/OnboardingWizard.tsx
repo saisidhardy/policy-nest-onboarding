@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, History } from "lucide-react";
+import { Check, History, Sparkles, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -183,6 +183,23 @@ export function OnboardingWizard({
 
       {savedNotice && <Alert tone="success">{savedNotice}</Alert>}
 
+      {application.status === "DRAFT" && step < 5 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 text-sm">
+          <div className="flex items-start gap-2.5">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+            <div>
+              <p className="font-semibold text-slate-900">Fast-track option: Upload KYC documents first</p>
+              <p className="text-xs text-slate-600">
+                Upload PAN, Aadhaar, Class 10 marksheet, and bank proof first to auto-fill your personal, address, education, and bank fields automatically.
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setStep(5)}>
+            <UploadCloud className="h-4 w-4" /> Jump to Document Upload
+          </Button>
+        </div>
+      )}
+
       {step === 1 && (
         <PersonalStep
           key={`p-${application.updated_at}`}
@@ -230,6 +247,9 @@ export function OnboardingWizard({
         <DocumentsStep
           application={application}
           onReload={onReload}
+          onApplyAutofill={async (patch, targetStep) => {
+            await saveDraft(patch, targetStep ?? 5);
+          }}
           onBack={() => setStep(4)}
           onContinue={() => {
             setSavedNotice(null);

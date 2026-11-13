@@ -47,6 +47,8 @@ const CHECK_BADGE: Record<string, { label: string; tone: "success" | "warning" |
 const ORIGIN_LABEL: Record<string, string> = {
   DETERMINISTIC_RULE: "Deterministic rule",
   PUBLIC_DIRECTORY: "Live public directory",
+  LOCAL_CV: "Local OpenCV check (advisory)",
+  AI_VISION_ADVISORY: "Gemini AI Vision (advisory)",
   SANDBOX: "Sandbox fixture (simulated)",
   REAL_PROVIDER: "Authorized provider",
   UNCONFIGURED: "Adapter not configured",
@@ -94,7 +96,6 @@ export function RedactedImageDialog({
       return;
     }
     let active = true;
-    let objectUrl: string | null = null;
     setLoading(true);
     setError(null);
     fetch(`/api/v1/applications/${applicationId}/documents/${documentId}/redacted`, {
@@ -104,8 +105,9 @@ export function RedactedImageDialog({
       .then(async (res) => {
         if (!res.ok) throw new Error(`Unable to load redacted image (HTTP ${res.status}).`);
         const blob = await res.blob();
-        objectUrl = URL.createObjectURL(blob);
-        if (active) setUrl(objectUrl);
+        const { blobToDataUrl } = await import("@/lib/blob");
+        const dataUrl = await blobToDataUrl(blob);
+        if (active) setUrl(dataUrl);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : "Failed to load redacted Aadhaar image.");
@@ -116,7 +118,6 @@ export function RedactedImageDialog({
 
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [applicationId, documentId]);
 

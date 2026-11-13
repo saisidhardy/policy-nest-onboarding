@@ -159,6 +159,7 @@ export interface ApplicationDocument {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  extraction?: DocumentExtraction | null;
 }
 
 export interface ApplicationEvent {

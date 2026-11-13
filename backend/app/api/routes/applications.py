@@ -177,6 +177,14 @@ async def upload_application_document(
     app = app_service.get_application(db, application_id)
     enforce_policy(request, auth, "application:create", _app_resource(app))
     data, content_type, safe_name, sha256_hex = await doc_service.read_validated_upload(file, doc_type)
+    from app.services import verification as verification_service
+
+    precomputed = verification_service.validate_upload_classification(
+        db,
+        doc_type=doc_type,
+        content_type=content_type,
+        raw_bytes=data,
+    )
     doc = doc_service.save_document_upload(
         db,
         app=app,
@@ -189,7 +197,17 @@ async def upload_application_document(
         auth=auth,
         request=request,
     )
-    return DocumentOut.model_validate(doc)
+    ext_out = verification_service.process_uploaded_document(
+        db,
+        app,
+        doc,
+        auth,
+        request,
+        precomputed_res=precomputed,
+    )
+    out = DocumentOut.model_validate(doc)
+    out.extraction = ext_out
+    return out
 
 
 @router.get("/{application_id}/documents/{document_id}/content")
@@ -219,6 +237,7 @@ def download_document_content(
         headers={
             "Content-Disposition": f'{disposition}; filename="{doc.original_filename}"',
             "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "SAMEORIGIN",
             "Cache-Control": "private, no-store",
         },
     )

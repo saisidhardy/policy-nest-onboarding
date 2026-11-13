@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     smtp_ssl: bool = False
     smtp_timeout_seconds: int = 10
     email_from: str | None = None
+    resend_api_key: str | None = None
 
     storage_provider: Literal["local", "s3"] = "local"
     storage_local_dir: str = "./storage"
@@ -124,7 +125,7 @@ class Settings(BaseSettings):
 
     @property
     def email_configured(self) -> bool:
-        return bool(self.smtp_host and self.email_from)
+        return bool(self.email_from and (self.smtp_host or self.resend_api_key))
 
     @property
     def max_upload_size_bytes(self) -> int:

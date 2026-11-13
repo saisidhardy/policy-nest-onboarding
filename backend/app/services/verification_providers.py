@@ -430,6 +430,181 @@ def check_face_match_adapter(
     )
 
 
+def evaluate_selfie_id_face_comparison(
+    docs_by_type: dict[str, object],
+    *,
+    db: Session | None = None,
+) -> ProviderCheckResult:
+    """Compare applicant selfie portrait against Aadhaar Front and PAN Card portraits via CV + optional Gemini Vision."""
+    from app.services.cv_quality import compare_selfie_to_id_opencv
+    from app.services.gemini_vision import compare_faces_with_gemini_vision
+    from app.services.storage import get_storage
+
+    selfie_doc = docs_by_type.get("APPLICANT_SELFIE")
+    aadhaar_doc = docs_by_type.get("AADHAAR_FRONT")
+    pan_doc = docs_by_type.get("PAN_CARD")
+
+    if selfie_doc is None or (aadhaar_doc is None and pan_doc is None):
+        return ProviderCheckResult(
+            check_type="SELFIE_ID_FACE_COMPARISON",
+            target_doc_type="APPLICANT_SELFIE",
+            status="NEEDS_INFO",
+            origin="LOCAL_CV",
+            provider_name="opencv_selfie_id_screening",
+            provider_reference=None,
+            is_simulated=False,
+            confidence=None,
+            details={
+                "has_selfie": selfie_doc is not None,
+                "has_aadhaar_front": aadhaar_doc is not None,
+                "has_pan_card": pan_doc is not None,
+            },
+            explanation="Upload Applicant Selfie along with Aadhaar Front and/or PAN Card to compare portrait photos.",
+        )
+
+    storage = get_storage()
+
+    def _safe_read(doc_obj: object | None) -> tuple[bytes | None, str | None]:
+        if doc_obj is None:
+            return None, None
+        try:
+            key = getattr(doc_obj, "storage_key", None)
+            mime = getattr(doc_obj, "content_type", None)
+            if not key or not mime:
+                return None, None
+            return storage.get_object(str(key)), str(mime)
+        except FileNotFoundError:
+            return None, None
+
+    selfie_bytes, selfie_mime = _safe_read(selfie_doc)
+    aadhaar_bytes, aadhaar_mime = _safe_read(aadhaar_doc)
+    pan_bytes, pan_mime = _safe_read(pan_doc)
+
+    if not selfie_bytes or not selfie_mime:
+        return ProviderCheckResult(
+            check_type="SELFIE_ID_FACE_COMPARISON",
+            target_doc_type="APPLICANT_SELFIE",
+            status="NEEDS_INFO",
+            origin="LOCAL_CV",
+            provider_name="opencv_selfie_id_screening",
+            provider_reference=None,
+            is_simulated=False,
+            confidence=None,
+            details={},
+            explanation="Selfie file is unavailable in storage for face comparison.",
+        )
+
+    cv_info = compare_selfie_to_id_opencv(
+        selfie_bytes=selfie_bytes,
+        selfie_mime=selfie_mime,
+        aadhaar_bytes=aadhaar_bytes,
+        aadhaar_mime=aadhaar_mime,
+        pan_bytes=pan_bytes,
+        pan_mime=pan_mime,
+    )
+
+    cfg = get_effective_integrations_config(db)
+    gemini_cmp = (
+        compare_faces_with_gemini_vision(
+            selfie_bytes=selfie_bytes,
+            selfie_mime=selfie_mime,
+            aadhaar_bytes=aadhaar_bytes,
+            aadhaar_mime=aadhaar_mime,
+            pan_bytes=pan_bytes,
+            pan_mime=pan_mime,
+            cfg=cfg,
+        )
+        if cfg.gemini_api_key
+        else None
+    )
+
+    if gemini_cmp is not None:
+        details = {
+            **cv_info,
+            "ai_vision_verdict": gemini_cmp.verdict,
+            "aadhaar_ai_similarity": gemini_cmp.aadhaar_match_score,
+            "pan_ai_similarity": gemini_cmp.pan_match_score,
+            "overall_ai_similarity": gemini_cmp.overall_match_score,
+            "advisory_only": True,
+        }
+        score = gemini_cmp.overall_match_score
+        if not gemini_cmp.selfie_has_clear_face:
+            status = "WARN"
+        elif gemini_cmp.verdict == "MISMATCH" or (score is not None and score < 0.45):
+            status = "FAILED"
+        elif gemini_cmp.verdict == "MATCH" and (score is None or score >= 0.72):
+            status = "PASSED"
+        else:
+            status = "WARN"
+        return ProviderCheckResult(
+            check_type="SELFIE_ID_FACE_COMPARISON",
+            target_doc_type="APPLICANT_SELFIE",
+            status=status,
+            origin="AI_VISION_ADVISORY",
+            provider_name="gemini_vision_advisory",
+            provider_reference=None,
+            is_simulated=False,
+            confidence=score,
+            details=details,
+            explanation=(
+                f"AI visual comparison ({gemini_cmp.verdict}): {gemini_cmp.reasoning} "
+                "Advisory visual screening only; not an official UIDAI/Rekognition biometric check."
+            ),
+        )
+
+    cv_score = cv_info.get("overall_cv_similarity")
+    if not cv_info.get("selfie_face_detected"):
+        return ProviderCheckResult(
+            check_type="SELFIE_ID_FACE_COMPARISON",
+            target_doc_type="APPLICANT_SELFIE",
+            status="WARN",
+            origin="LOCAL_CV",
+            provider_name="opencv_selfie_id_screening",
+            provider_reference=None,
+            is_simulated=False,
+            confidence=None,
+            details=cv_info,
+            explanation="No clear frontal face detected in selfie by local OpenCV check.",
+        )
+
+    if cv_score is None:
+        return ProviderCheckResult(
+            check_type="SELFIE_ID_FACE_COMPARISON",
+            target_doc_type="APPLICANT_SELFIE",
+            status="NEEDS_INFO",
+            origin="LOCAL_CV",
+            provider_name="opencv_selfie_id_screening",
+            provider_reference=None,
+            is_simulated=False,
+            confidence=None,
+            details=cv_info,
+            explanation=(
+                "Selfie face detected locally, but OpenCV could not isolate a clear portrait on the uploaded "
+                "Aadhaar/PAN scan. Configure GEMINI_API_KEY or external Face Match provider for full comparison."
+            ),
+        )
+
+    cv_float = float(cv_score)
+    # Local histogram/crop similarity is heuristic screening only -> WARN for manual review or PASSED/WARN honestly
+    status = "WARN" if cv_float < 0.55 else "PASSED"
+    return ProviderCheckResult(
+        check_type="SELFIE_ID_FACE_COMPARISON",
+        target_doc_type="APPLICANT_SELFIE",
+        status=status,
+        origin="LOCAL_CV",
+        provider_name="opencv_selfie_id_screening",
+        provider_reference=None,
+        is_simulated=False,
+        confidence=cv_float,
+        details=cv_info,
+        explanation=(
+            f"Local OpenCV visual screening compared selfie against ID portrait (similarity {cv_float:.2f}; "
+            f"Aadhaar={cv_info.get('aadhaar_cv_similarity')}, PAN={cv_info.get('pan_cv_similarity')}). "
+            "Heuristic screening only; configure GEMINI_API_KEY or AWS Rekognition for stronger comparison."
+        ),
+    )
+
+
 def get_webhook_integration_status(db: Session | None = None) -> dict[str, str]:
     cfg = get_effective_integrations_config(db)
     if cfg.webhook_shared_secret:

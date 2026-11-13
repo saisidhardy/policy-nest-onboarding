@@ -97,9 +97,8 @@ class GeminiAIAssistant:
         masked_ocr_text: str,
     ) -> AIAssistResult:
         try:
-            from google import genai
+            from app.services.gemini_vision import run_gemini_interaction
 
-            client = genai.Client(api_key=self.api_key)
             prompt = (
                 "You assist insurance onboarding reviewers. Summarize document extraction quality "
                 "using masked OCR text only. Never approve or reject an application.\n"
@@ -109,17 +108,13 @@ class GeminiAIAssistant:
                 f"Missing fields: {missing_fields}\n"
                 f"Masked OCR text:\n{masked_ocr_text[:2000]}"
             )
-            interaction = client.interactions.create(
-                model=self.model,
-                input=prompt,
-                response_format={
-                    "type": "text",
-                    "mime_type": "application/json",
-                    "schema": _GeminiDocAssistSchema.model_json_schema(),
-                },
-                store=False,
+            raw_out = run_gemini_interaction(
+                api_key=self.api_key,
+                primary_model=self.model,
+                input_data=prompt,
+                schema=_GeminiDocAssistSchema.model_json_schema(),
             )
-            parsed = _GeminiDocAssistSchema.model_validate_json(interaction.output_text or "{}")
+            parsed = _GeminiDocAssistSchema.model_validate_json(raw_out or "{}")
             return AIAssistResult(
                 provider=self.provider_name,
                 advisory_only=True,

@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         if request.url.path.startswith("/api/v1"):
             response.headers["Cache-Control"] = "no-store"

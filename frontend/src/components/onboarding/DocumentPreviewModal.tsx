@@ -26,20 +26,26 @@ export function DocumentPreviewModal({
       return;
     }
     let active = true;
-    let createdUrl: string | null = null;
     setLoading(true);
     setError(null);
     setBlobUrl(null);
 
-    fetch(`/api/v1/applications/${applicationId}/documents/${doc.id}/content`, {
+    const contentUrl = `/api/v1/applications/${applicationId}/documents/${doc.id}/content?v=${doc.version}`;
+    fetch(contentUrl, {
       credentials: "same-origin",
       cache: "no-store",
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(`Unable to load file (HTTP ${res.status}).`);
+        if (doc.content_type === "application/pdf") {
+          await res.body?.cancel();
+          if (active) setBlobUrl(contentUrl);
+          return;
+        }
         const blob = await res.blob();
-        createdUrl = URL.createObjectURL(blob);
-        if (active) setBlobUrl(createdUrl);
+        const { blobToDataUrl } = await import("@/lib/blob");
+        const dataUrl = await blobToDataUrl(blob);
+        if (active) setBlobUrl(dataUrl);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : "Unable to load preview.");
@@ -50,12 +56,12 @@ export function DocumentPreviewModal({
 
     return () => {
       active = false;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [applicationId, doc]);
 
   const label = doc ? (REQUIRED_DOCUMENTS.find((d) => d.type === doc.doc_type)?.label ?? doc.doc_type) : "";
-  const downloadHref = doc ? `/api/v1/applications/${applicationId}/documents/${doc.id}/content?download=1` : "#";
+  const inlineHref = doc ? `/api/v1/applications/${applicationId}/documents/${doc.id}/content?v=${doc.version}` : "#";
+  const downloadHref = doc ? `/api/v1/applications/${applicationId}/documents/${doc.id}/content?download=1&v=${doc.version}` : "#";
 
   return (
     <Dialog
@@ -87,9 +93,9 @@ export function DocumentPreviewModal({
                 <Download className="h-4 w-4" /> Download
               </a>
             )}
-            {blobUrl && (
+            {doc && (
               <a
-                href={blobUrl}
+                href={inlineHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"

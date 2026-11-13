@@ -78,6 +78,7 @@ def get_redacted_document_image(
         headers={
             "Content-Disposition": f'inline; filename="redacted_{doc.doc_type.lower()}.png"',
             "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "SAMEORIGIN",
             "Cache-Control": "private, no-store",
         },
     )

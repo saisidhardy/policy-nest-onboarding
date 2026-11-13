@@ -50,8 +50,10 @@ def _probe_http_endpoint(
 
 def _probe_smtp() -> tuple[str, str, int | None, str]:
     s = get_settings()
+    if s.resend_api_key and s.email_from:
+        return "CONFIGURED", "LIVE", 0, "Resend HTTPS API configured."
     if not s.email_configured or not s.smtp_host:
-        return "NOT_CONFIGURED", "NONE", None, "Set SMTP_HOST and EMAIL_FROM to enable SMTP delivery."
+        return "NOT_CONFIGURED", "NONE", None, "Set SMTP_HOST (or RESEND_API_KEY) and EMAIL_FROM to enable email delivery."
     local_hosts = {"localhost", "127.0.0.1", "mailpit"}
     mode = "LOCAL_DEVELOPMENT" if s.smtp_host in local_hosts else "LIVE"
     started = time.perf_counter()

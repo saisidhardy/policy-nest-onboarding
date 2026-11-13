@@ -221,6 +221,7 @@ class DocumentOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    extraction: Any | None = None
 
 
 class ApplicationEventOut(BaseModel):

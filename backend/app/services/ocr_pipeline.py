@@ -132,7 +132,7 @@ def _normalize_ifsc_ocr(candidate: str) -> str:
 
 
 def classify_document(text: str, *, has_face: bool = False) -> tuple[str, float]:
-    up = text.upper()
+    up = re.sub(r"\s+", " ", text.upper()).strip()
     scores: dict[str, float] = {
         "PAN_CARD": 0.0,
         "AADHAAR_FRONT": 0.0,
@@ -141,36 +141,88 @@ def classify_document(text: str, *, has_face: bool = False) -> tuple[str, float]
         "BANK_DOCUMENT": 0.0,
         "APPLICANT_SELFIE": 0.0,
     }
-    if any(k in up for k in ("INCOME TAX", "PERMANENT ACCOUNT", "GOVT. OF INDIA")):
-        scores["PAN_CARD"] += 0.45
+    pan_header = any(
+        k in up
+        for k in ("INCOME TAX", "INCOMETAX", "TAX DEPARTMENT", "PERMANENT ACCOUNT", "NSDL", "PROTEAN", "E-PAN")
+    )
+    if pan_header:
+        scores["PAN_CARD"] += 0.65
     if PAN_CANDIDATE_RE.search(up):
         scores["PAN_CARD"] += 0.45
 
-    if any(
-        k in up for k in ("AADHAAR", "UIDAI", "UNIQUE IDENTIFICATION", "MERA AADHAAR", "XXXX-XXXX-")
-    ) or AADHAAR_12_RE.search(up):
+    aadhaar_generic = any(
+        k in up for k in ("AADHAAR", "UIDAI", "UNIQUE IDENTIFICATION", "MERA AADHAAR", "XXXX-XXXX-", "VID")
+    ) or bool(AADHAAR_12_RE.search(up))
+    aadhaar_front_cues = bool(
+        re.search(r"\b(DOB|D\.O\.B|YOB|YEAR OF BIRTH|MALE|FEMALE|TRANSGENDER|PURUSH|MAHILA)\b", up)
+    )
+    aadhaar_back_rel = bool(re.search(r"\b(S/O|D/O|W/O|C/O)\b", up))
+    aadhaar_back_addr = any(
+        k in up for k in ("ADDRESS", "HELP@UIDAI", "UIDAI.GOV.IN", "1947", "POST OFFICE", "P.O.", "DISTRICT")
+    )
+    has_pincode = bool(PINCODE_RE.search(up))
+    aadhaar_back_cues = (
+        aadhaar_back_addr
+        or aadhaar_back_rel
+        or (aadhaar_generic and has_pincode and "PIN" in up)
+        or (aadhaar_generic and has_pincode and not aadhaar_front_cues)
+    )
+
+    if aadhaar_generic:
         scores["AADHAAR_FRONT"] += 0.35
         scores["AADHAAR_BACK"] += 0.35
-    if any(k in up for k in ("DOB", "MALE", "FEMALE", "YEAR OF BIRTH")):
-        scores["AADHAAR_FRONT"] += 0.30
-    if any(k in up for k in ("ADDRESS", "S/O", "D/O", "W/O", "C/O", "PIN")) and PINCODE_RE.search(up):
-        scores["AADHAAR_BACK"] += 0.35
+    if aadhaar_front_cues and not pan_header and (aadhaar_generic or not any(
+        k in up for k in ("MARKSHEET", "BOARD OF", "EXAMINATION", "CHEQUE", "IFSC")
+    )):
+        scores["AADHAAR_FRONT"] += 0.35
+    if aadhaar_generic and has_face and not aadhaar_back_cues and not pan_header:
+        scores["AADHAAR_FRONT"] += 0.20
+    if aadhaar_back_cues:
+        scores["AADHAAR_BACK"] += 0.45
+        if has_pincode:
+            scores["AADHAAR_BACK"] += 0.10
 
     if any(
         k in up
-        for k in ("CBSE", "CISCE", "NIOS", "SECONDARY", "MARKSHEET", "CLASS X", "HIGH SCHOOL", "PASS", "BOARD OF")
+        for k in (
+            "CBSE",
+            "CISCE",
+            "ICSE",
+            "NIOS",
+            "SSC",
+            "SSLC",
+            "MATRIC",
+            "SECONDARY",
+            "SEEONVARY",
+            "MARKSHEET",
+            "MARK SHEET",
+            "STATEMENT OF MARKS",
+            "CLASS X",
+            "HIGH SCHOOL",
+            "BOARD OF",
+            "EXAMINATION",
+        )
     ):
         scores["CLASS_10_MARKSHEET"] += 0.60
-    if any(k in up for k in ("ROLL", "SUBJECT", "MARKS", "GRADE")):
+    if any(k in up for k in ("ROLL", "SUBJECT", "MARKS", "GRADE", "SCHOOL", "CGPA", "GPA", "PASS", "DIVISION")):
         scores["CLASS_10_MARKSHEET"] += 0.25
 
-    if any(k in up for k in ("IFSC", "CANCELLED", "CHEQUE", "BANK", "BRANCH", "ACCOUNT", "A/C", "PAYEE")):
+    bank_kw = bool(
+        re.search(
+            r"\b(IFSC|MICR|CANCELLED|CHEQUE|BANK|BRANCH|PASSBOOK|SAVINGS|A/C|PAYEE|NEFT|RTGS|IMPS|STATEMENT)\b",
+            up,
+        )
+    ) or any(k in up for k in ("ACCOUNT HOLDER", "ACCOUNT NO", "ACCOUNT NUMBER", "ACCT NO"))
+    if bank_kw:
         scores["BANK_DOCUMENT"] += 0.50
     if IFSC_RE.search(up):
         scores["BANK_DOCUMENT"] += 0.40
+    if ACCOUNT_NUM_RE.search(up):
+        scores["BANK_DOCUMENT"] += 0.20
 
-    if has_face and len(up.strip()) < 60:
-        scores["APPLICANT_SELFIE"] += 0.85
+    other_best = max(v for k, v in scores.items() if k != "APPLICANT_SELFIE")
+    if has_face and (len(up) < 60 or other_best < 0.30):
+        scores["APPLICANT_SELFIE"] = 0.85
 
     best_type, best_score = max(scores.items(), key=lambda kv: kv[1])
     if best_score < 0.30:
@@ -206,15 +258,20 @@ def _extract_labeled_name(text: str) -> str | None:
 def _extract_father_name(text: str) -> str | None:
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     for idx, line in enumerate(lines):
-        m = re.search(r"(?:FATHER(?:'S)?\s*NAME|S/O|D/O)\s*[:\-]\s*(.+)$", line, re.I)
+        m = re.search(r"(?:FATHER(?:'S)?\s*NAME|S/O|D/O)\s*(?:[:\-]\s*|\s+)([A-Za-z][A-Za-z\s\.]{2,})$", line, re.I)
         if m:
             norm = normalize_person_name(m.group(1))
-            if norm:
+            if norm and len(norm) >= 4:
                 return norm
-        if re.search(r"FATHER(?:'S)?\s*NAME", line, re.I) and idx + 1 < len(lines):
-            norm = normalize_person_name(lines[idx + 1])
-            if norm:
-                return norm
+        if re.search(r"FATHER(?:'S)?\s*NAME", line, re.I):
+            for offset in (1, 2):
+                if idx + offset < len(lines):
+                    cand = lines[idx + offset]
+                    if re.search(r"^\s*MOTHER", cand, re.I):
+                        continue
+                    norm = normalize_person_name(cand)
+                    if norm and len(norm) >= 4 and len(norm.split()) >= 2:
+                        return norm
     return None
 
 
@@ -343,6 +400,22 @@ def _redact_aadhaar_image(image_bytes: bytes, ocr_data: dict | None) -> bytes | 
     return bytes(buf) if ok_enc else None
 
 
+def _tesseract_pass(gray_img) -> tuple[str, float, dict]:
+    data = pytesseract.image_to_data(gray_img, output_type=pytesseract.Output.DICT)
+    words = [str(w).strip() for w in data.get("text", [])]
+    confs = []
+    for w, c in zip(words, data.get("conf", []), strict=False):
+        try:
+            cv = float(c)
+        except (TypeError, ValueError):
+            continue
+        if w and cv >= 0:
+            confs.append(cv / 100.0)
+    raw_text = pytesseract.image_to_string(gray_img)
+    avg_conf = round(sum(confs) / len(confs), 3) if confs else 0.0
+    return raw_text, avg_conf, data
+
+
 def _run_tesseract_on_image(image_bytes: bytes) -> tuple[str, float | None, dict | None, str]:
     s = get_settings()
     if s.ocr_provider == "none":
@@ -357,18 +430,29 @@ def _run_tesseract_on_image(image_bytes: bytes) -> tuple[str, float | None, dict
         return "", 0.0, None, "LOCAL_TESSERACT"
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
-    words = [str(w).strip() for w in data.get("text", [])]
-    confs = []
-    for w, c in zip(words, data.get("conf", []), strict=False):
-        try:
-            cv = float(c)
-        except (TypeError, ValueError):
-            continue
-        if w and cv >= 0:
-            confs.append(cv / 100.0)
-    raw_text = pytesseract.image_to_string(gray)
-    avg_conf = round(sum(confs) / len(confs), 3) if confs else 0.0
+    raw_text, avg_conf, data = _tesseract_pass(gray)
+
+    # Fallback auto-rotation for sideways/upside-down mobile uploads
+    if len(re.sub(r"\s+", "", raw_text)) < 25 or avg_conf < 0.40:
+        h, w = gray.shape[:2]
+        probe = gray
+        if max(h, w) > 1200:
+            scale = 1200.0 / float(max(h, w))
+            probe = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        best_score = (avg_conf * 100.0) + min(40, len(re.sub(r"\s+", "", raw_text)))
+        best_rot: int | None = None
+        for rot_code in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE, cv2.ROTATE_180):
+            rot_probe = cv2.rotate(probe, rot_code)
+            txt = pytesseract.image_to_string(rot_probe)
+            clean_len = len(re.sub(r"\s+", "", txt))
+            if clean_len >= 25:
+                cand_conf = 65.0 + min(40, clean_len)
+                if cand_conf > best_score:
+                    best_score = cand_conf
+                    best_rot = rot_code
+        if best_rot is not None:
+            raw_text, avg_conf, data = _tesseract_pass(cv2.rotate(gray, best_rot))
+
     return raw_text, avg_conf, data, "LOCAL_TESSERACT"
 
 
@@ -418,10 +502,10 @@ def process_document_bytes(
             raw_text = pdf_text
             ocr_confidence = 0.95
             ocr_engine = "PYPDF_TEXT"
-            quality = ImageQualityMetrics("OK", None, None, None, None, None, None)
+            quality = ImageQualityMetrics("OK", None, None, None, False if is_selfie else None, None, None)
         elif pdf_images:
             raster_for_redaction = pdf_images[0]
-            quality = analyze_image_quality(raster_for_redaction, check_face=False)
+            quality = analyze_image_quality(raster_for_redaction, check_face=is_selfie, detect_face=not is_selfie)
             if cfg.ocr_provider == "none":
                 ocr_engine = "DISABLED"
             elif cfg.ocr_provider == "http_ocr":
@@ -431,15 +515,17 @@ def process_document_bytes(
             else:
                 raw_text, ocr_confidence, ocr_data, ocr_engine = _run_tesseract_on_image(raster_for_redaction)
         else:
-            quality = ImageQualityMetrics("UNREADABLE", None, None, None, None, None, None)
+            quality = ImageQualityMetrics("UNREADABLE", None, None, None, False if is_selfie else None, None, None)
             ocr_confidence = 0.0
             ocr_engine = "PYPDF_TEXT"
     else:
         raster_for_redaction = data
-        quality = analyze_image_quality(data, check_face=is_selfie)
+        quality = analyze_image_quality(data, check_face=is_selfie, detect_face=not is_selfie)
         if is_selfie:
             ocr_engine = "CV_FACE_DETECTOR"
             ocr_confidence = 1.0 if quality.face_detected else 0.0
+            if quality.width is not None and quality.quality_status != "UNREADABLE" and cfg.ocr_provider == "local_tesseract":
+                raw_text, _, _, _ = _run_tesseract_on_image(data)
         elif cfg.ocr_provider == "none":
             ocr_engine = "DISABLED"
         elif cfg.ocr_provider == "http_ocr":
@@ -456,14 +542,16 @@ def process_document_bytes(
         aadhaar_applied = True
 
     if is_selfie:
-        predicted_type = "APPLICANT_SELFIE" if quality.face_detected else "UNKNOWN"
-        class_conf = 0.95 if quality.face_detected else 0.2
+        ocr_pred, ocr_conf = classify_document(masked_text, has_face=bool(quality.face_detected))
+        if ocr_pred not in ("UNKNOWN", "APPLICANT_SELFIE") and ocr_conf >= 0.55:
+            predicted_type, class_conf = ocr_pred, ocr_conf
+        else:
+            predicted_type = "APPLICANT_SELFIE" if quality.face_detected else "UNKNOWN"
+            class_conf = 0.95 if quality.face_detected else 0.2
     else:
         predicted_type, class_conf = classify_document(masked_text, has_face=bool(quality.face_detected))
 
-    classification_match = predicted_type == doc_type or (
-        doc_type in ("AADHAAR_FRONT", "AADHAAR_BACK") and predicted_type in ("AADHAAR_FRONT", "AADHAAR_BACK")
-    )
+    classification_match = predicted_type == doc_type
     fields, missing = extract_fields_for_doc(doc_type, masked_text, face_detected=quality.face_detected)
 
     # Low OCR confidence on clear image still warns quality if unreadable

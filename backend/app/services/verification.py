@@ -32,7 +32,7 @@ from app.schemas.verification import (
 from app.services import audit
 from app.services.ai_assistant import get_ai_assistant
 from app.services.consistency import evaluate_cross_document_consistency
-from app.services.ocr_pipeline import EXPECTED_FIELDS_BY_DOC, process_document_bytes
+from app.services.ocr_pipeline import EXPECTED_FIELDS_BY_DOC, OcrPipelineResult, process_document_bytes
 from app.services.storage import get_storage
 from app.services.verification_providers import (
     ProviderCheckResult,
@@ -40,6 +40,7 @@ from app.services.verification_providers import (
     check_digilocker_adapter,
     check_face_match_adapter,
     check_pan_verification_adapter,
+    evaluate_selfie_id_face_comparison,
     lookup_ifsc_directory,
 )
 
@@ -102,6 +103,7 @@ def _recompute_checks(
         ),
         check_digilocker_adapter(application_id=str(app.id), db=db),
         check_face_match_adapter(selfie_face_val, application_id=str(app.id), db=db),
+        evaluate_selfie_id_face_comparison({doc.doc_type: doc for doc, _ in docs_with_ext}, db=db),
     ]
 
     db.execute(delete(VerificationCheck).where(VerificationCheck.application_id == app.id))
@@ -237,6 +239,234 @@ def build_verification_report(db: Session, app: Application) -> ApplicationVerif
     )
 
 
+def _to_extraction_out(ext: DocumentExtraction, doc_type: str) -> DocumentExtractionOut:
+    return DocumentExtractionOut(
+        id=ext.id,
+        document_id=ext.document_id,
+        doc_type=doc_type,
+        application_id=ext.application_id,
+        ocr_engine=ext.ocr_engine,
+        ai_assistant_provider=ext.ai_assistant_provider,
+        predicted_doc_type=ext.predicted_doc_type,
+        classification_confidence=ext.classification_confidence,
+        classification_match=ext.classification_match,
+        quality_status=ext.quality_status,
+        blur_score=ext.blur_score,
+        glare_ratio=ext.glare_ratio,
+        edge_clip_ratio=ext.edge_clip_ratio,
+        face_detected=ext.face_detected,
+        ocr_confidence=ext.ocr_confidence,
+        raw_ocr_text_masked=ext.raw_ocr_text_masked,
+        extracted_fields=ext.extracted_fields,
+        missing_fields=ext.missing_fields,
+        ai_explanation=ext.ai_explanation,
+        aadhaar_masked_applied=ext.aadhaar_masked_applied,
+        has_redacted_image=bool(ext.redacted_storage_key),
+        reviewer_corrected_fields=ext.reviewer_corrected_fields,
+        effective_fields=ext.effective_fields,
+        corrected_by_user_id=ext.corrected_by_user_id,
+        corrected_at=ext.corrected_at,
+        processed_at=ext.processed_at,
+    )
+
+
+def inspect_document_payload(
+    db: Session,
+    *,
+    doc_type: str,
+    content_type: str,
+    raw_bytes: bytes,
+) -> OcrPipelineResult:
+    """Run CV quality, OCR extraction, and optional Gemini Vision upgrade on raw bytes."""
+    from app.services.gemini_vision import enhance_ocr_result_with_gemini_vision
+    from app.services.platform_config import get_effective_integrations_config
+
+    res = process_document_bytes(doc_type, content_type, raw_bytes, db=db)
+    return enhance_ocr_result_with_gemini_vision(
+        doc_type=doc_type,
+        content_type=content_type,
+        raw_bytes=raw_bytes,
+        res=res,
+        cfg=get_effective_integrations_config(db),
+    )
+
+
+def validate_upload_classification(
+    db: Session,
+    *,
+    doc_type: str,
+    content_type: str,
+    raw_bytes: bytes,
+) -> OcrPipelineResult:
+    """Inspect an incoming upload before persistence and reject confident wrong-slot documents."""
+    from app.services.documents import DOC_LABELS
+
+    res = inspect_document_payload(db, doc_type=doc_type, content_type=content_type, raw_bytes=raw_bytes)
+    if (
+        res.predicted_doc_type not in (None, "UNKNOWN", doc_type)
+        and (res.classification_confidence or 0.0) >= 0.55
+    ):
+        pred_label = DOC_LABELS.get(str(res.predicted_doc_type), str(res.predicted_doc_type))
+        expected_label = DOC_LABELS.get(doc_type, doc_type)
+        raise AppError(
+            422,
+            "DOCUMENT_TYPE_MISMATCH",
+            f"Uploaded file appears to be {pred_label}, not {expected_label}. Please upload your {expected_label} in this slot.",
+            details={
+                "expected_doc_type": doc_type,
+                "predicted_doc_type": res.predicted_doc_type,
+                "confidence": res.classification_confidence,
+            },
+        )
+    return res
+
+
+def _process_single_document_record(
+    db: Session,
+    app: Application,
+    doc: ApplicationDocument,
+    assistant,
+    storage,
+    existing: DocumentExtraction | None,
+    now,
+    *,
+    precomputed_res: OcrPipelineResult | None = None,
+) -> DocumentExtraction:
+    if precomputed_res is not None:
+        res = precomputed_res
+    else:
+        try:
+            raw_bytes = storage.get_object(doc.storage_key)
+        except FileNotFoundError as exc:
+            raise AppError(
+                404,
+                "DOCUMENT_FILE_MISSING",
+                f"Stored file for {doc.doc_type} could not be located in private storage.",
+            ) from exc
+
+        res = inspect_document_payload(
+            db,
+            doc_type=doc.doc_type,
+            content_type=doc.content_type,
+            raw_bytes=raw_bytes,
+        )
+
+    redacted_key: str | None = None
+    if res.redacted_image_bytes:
+        redacted_key = f"applications/{app.id}/redacted/{doc.id}.png"
+        storage.put_object(redacted_key, res.redacted_image_bytes, "image/png")
+
+    ai_res = assistant.summarize_document(
+        doc_type=doc.doc_type,
+        quality_status=res.quality.quality_status,
+        ocr_confidence=res.ocr_confidence,
+        extracted_fields=res.extracted_fields,
+        missing_fields=res.missing_fields,
+        masked_ocr_text=res.raw_ocr_text_masked,
+    )
+    if res.classification_match is False and res.predicted_doc_type not in (None, "UNKNOWN", doc.doc_type):
+        ai_res_explanation = (
+            f"Document mismatch warning: uploaded file looks like {res.predicted_doc_type} instead of {doc.doc_type}. "
+            + ai_res.explanation
+        )
+    elif res.ocr_engine == "OCR_UNAVAILABLE":
+        ai_res_explanation = (
+            f"Quality status: {res.quality.quality_status}. Automated text OCR could not run on this server "
+            "(Tesseract binary is absent and GEMINI_API_KEY / HTTP OCR is not configured). "
+            "Configure GEMINI_API_KEY for full AI document reading."
+        )
+    else:
+        ai_res_explanation = ai_res.explanation
+
+    if existing is not None:
+        corrected = dict(existing.reviewer_corrected_fields or {})
+        effective = {**res.extracted_fields, **corrected}
+        missing = _compute_missing_fields(doc.doc_type, effective)
+        existing.ocr_engine = res.ocr_engine
+        existing.ai_assistant_provider = ai_res.provider
+        existing.predicted_doc_type = res.predicted_doc_type
+        existing.classification_confidence = res.classification_confidence
+        existing.classification_match = res.classification_match
+        existing.quality_status = res.quality.quality_status
+        existing.blur_score = res.quality.blur_score
+        existing.glare_ratio = res.quality.glare_ratio
+        existing.edge_clip_ratio = res.quality.edge_clip_ratio
+        existing.face_detected = res.quality.face_detected
+        existing.ocr_confidence = res.ocr_confidence
+        existing.raw_ocr_text_masked = res.raw_ocr_text_masked
+        existing.extracted_fields = res.extracted_fields
+        existing.missing_fields = missing
+        existing.ai_explanation = ai_res_explanation
+        existing.aadhaar_masked_applied = res.aadhaar_masked_applied
+        existing.redacted_storage_key = redacted_key or existing.redacted_storage_key
+        existing.effective_fields = effective
+        existing.processed_at = now
+        return existing
+
+    ext_row = DocumentExtraction(
+        document_id=doc.id,
+        application_id=app.id,
+        ocr_engine=res.ocr_engine,
+        ai_assistant_provider=ai_res.provider,
+        predicted_doc_type=res.predicted_doc_type,
+        classification_confidence=res.classification_confidence,
+        classification_match=res.classification_match,
+        quality_status=res.quality.quality_status,
+        blur_score=res.quality.blur_score,
+        glare_ratio=res.quality.glare_ratio,
+        edge_clip_ratio=res.quality.edge_clip_ratio,
+        face_detected=res.quality.face_detected,
+        ocr_confidence=res.ocr_confidence,
+        raw_ocr_text_masked=res.raw_ocr_text_masked,
+        extracted_fields=res.extracted_fields,
+        missing_fields=res.missing_fields,
+        ai_explanation=ai_res_explanation,
+        aadhaar_masked_applied=res.aadhaar_masked_applied,
+        redacted_storage_key=redacted_key,
+        reviewer_corrected_fields=None,
+        effective_fields=dict(res.extracted_fields),
+        processed_at=now,
+    )
+    db.add(ext_row)
+    return ext_row
+
+
+def process_uploaded_document(
+    db: Session,
+    app: Application,
+    doc: ApplicationDocument,
+    auth: AuthContext,
+    request: Request,
+    *,
+    precomputed_res: OcrPipelineResult | None = None,
+) -> DocumentExtractionOut:
+    """Immediately inspect quality, run OCR/vision extraction, and refresh verification checks on upload."""
+    storage = get_storage()
+    assistant = get_ai_assistant(db)
+    existing = db.scalar(select(DocumentExtraction).where(DocumentExtraction.document_id == doc.id))
+    ext_row = _process_single_document_record(
+        db,
+        app,
+        doc,
+        assistant,
+        storage,
+        existing,
+        utcnow(),
+        precomputed_res=precomputed_res,
+    )
+    db.flush()
+
+    docs = _current_docs(db, app.id)
+    ext_by_doc_id = {
+        e.document_id: e
+        for e in db.scalars(select(DocumentExtraction).where(DocumentExtraction.application_id == app.id)).all()
+    }
+    docs_with_ext = [(d, ext_by_doc_id[d.id]) for d in docs if d.id in ext_by_doc_id]
+    _recompute_checks(db, app, docs_with_ext)
+    db.flush()
+    return _to_extraction_out(ext_row, doc.doc_type)
+
+
 def run_document_intelligence(
     db: Session,
     app: Application,
@@ -264,82 +494,15 @@ def run_document_intelligence(
     docs_with_ext: list[tuple[ApplicationDocument, DocumentExtraction]] = []
 
     for doc in docs:
-        try:
-            raw_bytes = storage.get_object(doc.storage_key)
-        except FileNotFoundError as exc:
-            raise AppError(
-                404,
-                "DOCUMENT_FILE_MISSING",
-                f"Stored file for {doc.doc_type} could not be located in private storage.",
-            ) from exc
-
-        res = process_document_bytes(doc.doc_type, doc.content_type, raw_bytes, db=db)
-
-        redacted_key: str | None = None
-        if res.redacted_image_bytes:
-            redacted_key = f"applications/{app.id}/redacted/{doc.id}.png"
-            storage.put_object(redacted_key, res.redacted_image_bytes, "image/png")
-
-        ai_res = assistant.summarize_document(
-            doc_type=doc.doc_type,
-            quality_status=res.quality.quality_status,
-            ocr_confidence=res.ocr_confidence,
-            extracted_fields=res.extracted_fields,
-            missing_fields=res.missing_fields,
-            masked_ocr_text=res.raw_ocr_text_masked,
+        ext_row = _process_single_document_record(
+            db,
+            app,
+            doc,
+            assistant,
+            storage,
+            existing_by_doc_id.get(doc.id),
+            now,
         )
-
-        existing = existing_by_doc_id.get(doc.id)
-        if existing is not None:
-            corrected = dict(existing.reviewer_corrected_fields or {})
-            effective = {**res.extracted_fields, **corrected}
-            missing = _compute_missing_fields(doc.doc_type, effective)
-            existing.ocr_engine = res.ocr_engine
-            existing.ai_assistant_provider = ai_res.provider
-            existing.predicted_doc_type = res.predicted_doc_type
-            existing.classification_confidence = res.classification_confidence
-            existing.classification_match = res.classification_match
-            existing.quality_status = res.quality.quality_status
-            existing.blur_score = res.quality.blur_score
-            existing.glare_ratio = res.quality.glare_ratio
-            existing.edge_clip_ratio = res.quality.edge_clip_ratio
-            existing.face_detected = res.quality.face_detected
-            existing.ocr_confidence = res.ocr_confidence
-            existing.raw_ocr_text_masked = res.raw_ocr_text_masked
-            existing.extracted_fields = res.extracted_fields
-            existing.missing_fields = missing
-            existing.ai_explanation = ai_res.explanation
-            existing.aadhaar_masked_applied = res.aadhaar_masked_applied
-            existing.redacted_storage_key = redacted_key or existing.redacted_storage_key
-            existing.effective_fields = effective
-            existing.processed_at = now
-            ext_row = existing
-        else:
-            ext_row = DocumentExtraction(
-                document_id=doc.id,
-                application_id=app.id,
-                ocr_engine=res.ocr_engine,
-                ai_assistant_provider=ai_res.provider,
-                predicted_doc_type=res.predicted_doc_type,
-                classification_confidence=res.classification_confidence,
-                classification_match=res.classification_match,
-                quality_status=res.quality.quality_status,
-                blur_score=res.quality.blur_score,
-                glare_ratio=res.quality.glare_ratio,
-                edge_clip_ratio=res.quality.edge_clip_ratio,
-                face_detected=res.quality.face_detected,
-                ocr_confidence=res.ocr_confidence,
-                raw_ocr_text_masked=res.raw_ocr_text_masked,
-                extracted_fields=res.extracted_fields,
-                missing_fields=res.missing_fields,
-                ai_explanation=ai_res.explanation,
-                aadhaar_masked_applied=res.aadhaar_masked_applied,
-                redacted_storage_key=redacted_key,
-                reviewer_corrected_fields=None,
-                effective_fields=dict(res.extracted_fields),
-                processed_at=now,
-            )
-            db.add(ext_row)
         docs_with_ext.append((doc, ext_row))
 
     db.flush()

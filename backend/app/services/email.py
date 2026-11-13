@@ -8,6 +8,7 @@ from email.message import EmailMessage as MimeMessage
 from html import escape
 from typing import Protocol
 
+import httpx
 from fastapi import BackgroundTasks
 from sqlalchemy.orm import Session
 
@@ -67,6 +68,33 @@ class SmtpEmailProvider:
             server.send_message(mime)
 
 
+class ResendEmailProvider:
+    name = "resend"
+    configured = True
+
+    def send(self, message: OutgoingEmail) -> None:
+        s = get_settings()
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {s.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": s.email_from,
+                "to": [message.to],
+                "subject": message.subject,
+                "text": message.text,
+                "html": message.html,
+            },
+            timeout=float(s.smtp_timeout_seconds),
+        )
+        if resp.status_code >= 500 or resp.status_code == 429:
+            raise OSError(f"Resend transient HTTP {resp.status_code}: {resp.text[:300]}")
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Resend HTTP {resp.status_code}: {resp.text[:300]}")
+
+
 class UnconfiguredEmailProvider:
     name = "none"
     configured = False
@@ -86,7 +114,12 @@ def set_provider_override(provider: EmailProvider | None) -> None:
 def get_provider() -> EmailProvider:
     if _provider_override is not None:
         return _provider_override
-    return SmtpEmailProvider() if get_settings().email_configured else UnconfiguredEmailProvider()
+    s = get_settings()
+    if s.resend_api_key and s.email_from:
+        return ResendEmailProvider()
+    if s.smtp_host and s.email_from:
+        return SmtpEmailProvider()
+    return UnconfiguredEmailProvider()
 
 
 def _layout(title: str, intro: str, cta_label: str, url: str, footer: str) -> tuple[str, str]:
@@ -155,7 +188,7 @@ def queue_email(db: Session, background: BackgroundTasks, user: User, template: 
         status=STATUS_QUEUED if provider.configured else STATUS_NOT_CONFIGURED,
         attempts=0,
         last_attempt_at=None,
-        error=None if provider.configured else "No email provider configured (set SMTP_HOST and EMAIL_FROM).",
+        error=None if provider.configured else "No email provider configured (set SMTP_HOST or RESEND_API_KEY, plus EMAIL_FROM).",
     )
     db.add(delivery)
     if provider.configured:
@@ -177,7 +210,7 @@ def deliver_with_retry(
         try:
             provider.send(message)
             return STATUS_SENT, attempts, None
-        except (smtplib.SMTPException, TimeoutError, OSError) as exc:
+        except (smtplib.SMTPException, httpx.HTTPError, TimeoutError, OSError) as exc:
             last_error = f"{type(exc).__name__}: {exc}"[:1000]
             if attempt < max_try:
                 time.sleep(0.1 * attempt)
