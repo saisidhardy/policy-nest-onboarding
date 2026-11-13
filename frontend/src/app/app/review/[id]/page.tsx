@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertOctagon, ArrowLeft, Eye, ShieldCheck, UserCheck } from "lucide-react";
+import { AlertOctagon, ArrowLeft, Eye, ScrollText, ShieldCheck, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -209,6 +209,15 @@ function ReviewerDetailInner() {
               {can("application:escalate") && app.status !== "DRAFT" && app.status !== "WITHDRAWN" && !app.fraud_flag && (
                 <Button size="sm" variant="danger" onClick={() => setShowFraudBox((v) => !v)}>
                   <AlertOctagon className="h-3.5 w-3.5" /> Escalate to Fraud Desk
+                </Button>
+              )}
+              {app.status !== "DRAFT" && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
+                >
+                  <ScrollText className="h-3.5 w-3.5" /> View Dossier
                 </Button>
               )}
             </div>

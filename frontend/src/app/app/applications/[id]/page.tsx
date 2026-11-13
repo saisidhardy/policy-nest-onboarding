@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Eye } from "lucide-react";
+import { ArrowRight, Eye, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -96,6 +96,14 @@ function ApplicationDetailView() {
               >
                 Resume step {app.current_step} <ArrowRight className="h-4 w-4" />
               </Link>
+            )}
+            {app.status === "CERTIFIED" && (
+              <Button
+                variant="secondary"
+                onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
+              >
+                <ScrollText className="h-4 w-4" /> Official Dossier
+              </Button>
             )}
             {app.status === "DRAFT" && (
               <Button variant="secondary" loading={withdrawing} onClick={withdraw}>

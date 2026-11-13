@@ -19,7 +19,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     label: "STP Applicant",
     role: "Candidate",
     email: "posp_stp@policynest.demo",
-    route: "/app/applicant",
+    route: "/app",
     description: "Auto-approved POSP candidate",
   },
   {
