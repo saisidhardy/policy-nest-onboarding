@@ -1,0 +1,16 @@
+{
+  "name": "PolicyNest POSP Onboarding",
+  "short_name": "PolicyNest",
+  "description": "IRDAI Point of Sales Person (POSP) Autonomous Onboarding Platform",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#102C57",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

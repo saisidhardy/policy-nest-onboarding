@@ -6,6 +6,7 @@ import {
   Eye,
   FileUp,
   History,
+  ShieldCheck,
   Sparkles,
   Trash2,
   UploadCloud,
@@ -17,6 +18,7 @@ import { api, apiForm, ApiError } from "@/lib/api";
 import { extractAutofillFromReport } from "@/lib/autofill";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { normalizeAndOptimizeImage } from "@/lib/imagePrep";
 import type {
   ApplicationDetail,
@@ -52,7 +54,10 @@ export function DocumentsStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const { t } = useI18n();
   const [busyType, setBusyType] = useState<DocumentType | null>(null);
+  const [uploadStage, setUploadStage] = useState<string | null>(null);
+  const [uploadPercent, setUploadPercent] = useState<number>(0);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [autofillLoading, setAutofillLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +115,28 @@ export function DocumentsStep({
     setError(null);
     setSlotError(null);
     setNotice(null);
+    setUploadPercent(15);
+    setUploadStage(t.docs.uploadStage1);
+    const timers = [
+      setTimeout(() => {
+        setUploadPercent(45);
+        setUploadStage(t.docs.uploadStage2);
+      }, 400),
+      setTimeout(() => {
+        setUploadPercent(75);
+        setUploadStage(t.docs.uploadStage3);
+      }, 1200),
+      setTimeout(() => {
+        setUploadPercent(90);
+        setUploadStage(t.docs.uploadStage4);
+      }, 2300),
+    ];
     try {
       const prepared = await normalizeAndOptimizeImage(rawFile);
       const fd = new FormData();
       fd.append("file", prepared.file);
       const uploaded = await apiForm<ApplicationDocument>(`/applications/${application.id}/documents/${docType}`, fd);
+      setUploadPercent(100);
       await onReload();
       await loadVerification();
 
@@ -147,7 +169,10 @@ export function DocumentsStep({
       setError(msg);
       setSlotError({ docType, message: msg });
     } finally {
+      timers.forEach(clearTimeout);
       setBusyType(null);
+      setUploadStage(null);
+      setUploadPercent(0);
     }
   }
 
@@ -253,6 +278,17 @@ export function DocumentsStep({
             );
           })()}
 
+          {/* DPDP Act 2023 Explicit Consent and Data Protection Disclosure Card */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 shadow-xs">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+              <div>
+                <p className="text-xs font-semibold text-emerald-950">{t.docs.dpdpNotice}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-emerald-900">{t.docs.dpdpClause}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             {REQUIRED_DOCUMENTS.map((spec) => {
               const doc = byType.get(spec.type);
@@ -262,17 +298,28 @@ export function DocumentsStep({
                 ? (QUALITY_META[ext.quality_status] ?? { label: ext.quality_status, tone: "warning" as const })
                 : null;
               const fieldPairs = Object.entries(ext?.effective_fields ?? {});
+
+              const localizedLabels: Record<string, { label: string; desc: string }> = {
+                PAN_CARD: { label: t.docs.pan, desc: t.docs.panDesc },
+                AADHAAR_FRONT: { label: t.docs.aadhaarFront, desc: t.docs.aadhaarFrontDesc },
+                AADHAAR_BACK: { label: t.docs.aadhaarBack, desc: t.docs.aadhaarBackDesc },
+                CLASS_10_MARKSHEET: { label: t.docs.marksheet, desc: t.docs.marksheetDesc },
+                BANK_DOCUMENT: { label: t.docs.cheque, desc: t.docs.chequeDesc },
+                APPLICANT_SELFIE: { label: t.docs.selfie, desc: t.docs.selfieDesc },
+              };
+              const meta = localizedLabels[spec.type] ?? { label: spec.label, desc: spec.description };
+
               return (
                 <div key={spec.type} className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4">
                   <div>
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-slate-900">{spec.label}</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">{meta.label}</h3>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {doc ? <Badge tone="success">Uploaded v{doc.version}</Badge> : <Badge tone="warning">Required</Badge>}
                         {qMeta && <Badge tone={qMeta.tone}>{qMeta.label}</Badge>}
                       </div>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{spec.description}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{meta.desc}</p>
 
                     {doc && (
                       <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
@@ -333,10 +380,29 @@ export function DocumentsStep({
                         {slotError.message}
                       </div>
                     )}
+
+                    {isBusy && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/90 p-3 text-xs shadow-xs">
+                        <div className="flex items-center justify-between font-medium text-blue-900">
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                            {uploadStage || t.docs.uploadStage1}
+                          </span>
+                          <span className="font-mono font-semibold text-blue-700">{uploadPercent}%</span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
+                          <div
+                            className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                            style={{ width: `${uploadPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 hover:bg-slate-50">
                         {doc ? <FileUp className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
-                        {isBusy ? "Uploading..." : doc ? "Replace file" : "Upload file"}
+                        {isBusy ? "Processing..." : doc ? t.docs.reuploadButton : t.docs.uploadButton}
                         <input
                           type="file"
                           accept={spec.accept}
@@ -351,7 +417,7 @@ export function DocumentsStep({
                       </label>
                       {doc && (
                         <Button type="button" variant="secondary" size="sm" onClick={() => setPreviewDoc(doc)}>
-                          <Eye className="h-3.5 w-3.5" /> Preview
+                          <Eye className="h-3.5 w-3.5" /> {t.docs.previewButton}
                         </Button>
                       )}
                       {doc && application.status === "DRAFT" && (
@@ -362,7 +428,7 @@ export function DocumentsStep({
                           loading={removingId === doc.id}
                           onClick={() => void removeDoc(doc)}
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-red-600" /> Remove
+                          <Trash2 className="h-3.5 w-3.5 text-red-600" /> {t.docs.removeButton}
                         </Button>
                       )}
                     </div>

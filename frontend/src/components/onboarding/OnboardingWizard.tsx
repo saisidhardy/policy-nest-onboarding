@@ -9,6 +9,7 @@ import { Alert, Button, PageHeader } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { WIZARD_STEPS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { ApplicationDetail, RuleExecution } from "@/lib/types";
 import { AddressStep } from "./AddressStep";
 import { ApplicationStatusBadge } from "./ApplicationTracker";
@@ -28,6 +29,7 @@ export function OnboardingWizard({
   onReload: () => Promise<void>;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [step, setStep] = useState<number>(application.current_step || 1);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -141,6 +143,17 @@ export function OnboardingWizard({
         {WIZARD_STEPS.map((s) => {
           const active = step === s.step;
           const done = sectionFlags[s.key];
+          const localizedTitle = (
+            {
+              1: t.wizard.step1_title,
+              2: t.wizard.step2_title,
+              3: t.wizard.step3_title,
+              4: t.wizard.step4_title,
+              5: t.wizard.step5_title,
+              6: t.wizard.step6_title,
+            } as Record<number, string>
+          )[s.step] ?? s.title;
+
           return (
             <button
               key={s.step}
@@ -173,7 +186,7 @@ export function OnboardingWizard({
                 {done && !active ? <Check className="h-3.5 w-3.5" /> : s.step}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-semibold">{s.title}</span>
+                <span className="block truncate text-xs font-semibold">{localizedTitle}</span>
                 <span className="block truncate text-[11px] text-slate-500">{s.subtitle}</span>
               </span>
             </button>
@@ -188,14 +201,12 @@ export function OnboardingWizard({
           <div className="flex items-start gap-2.5">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
             <div>
-              <p className="font-semibold text-slate-900">Fast-track option: Upload KYC documents first</p>
-              <p className="text-xs text-slate-600">
-                Upload PAN, Aadhaar, Class 10 marksheet, and bank proof first to auto-fill your personal, address, education, and bank fields automatically.
-              </p>
+              <p className="font-semibold text-slate-900">{t.wizard.fastTrack}</p>
+              <p className="text-xs text-slate-600">{t.wizard.fastTrackNotice}</p>
             </div>
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={() => setStep(5)}>
-            <UploadCloud className="h-4 w-4" /> Jump to Document Upload
+            <UploadCloud className="h-4 w-4" /> {t.docs.uploadButton}
           </Button>
         </div>
       )}

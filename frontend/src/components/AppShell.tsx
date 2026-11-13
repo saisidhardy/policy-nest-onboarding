@@ -30,6 +30,8 @@ import type { NotificationsPage } from "@/lib/types";
 import { Logo } from "./Logo";
 import { Badge } from "./ui";
 import { VerificationBanner } from "./VerificationBanner";
+import { LanguageToggle } from "./LanguageToggle";
+import { useI18n } from "@/lib/i18n";
 
 export interface NavItem {
   href: string;
@@ -63,10 +65,30 @@ export function visibleNav(permissions: string[]): NavItem[] {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { me, logout } = useAuth();
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const navLabels: Record<string, string> = {
+    "/app": t.nav.overview,
+    "/app/onboarding": t.nav.onboarding,
+    "/app/applications": t.nav.myApplications,
+    "/app/review": t.nav.review,
+    "/app/review/analytics": t.nav.analytics,
+    "/app/training": t.nav.training,
+    "/app/notifications": t.nav.notifications,
+    "/app/account": t.nav.account,
+    "/app/admin/users": t.nav.adminUsers,
+    "/app/admin/reviewers": t.nav.adminReviewers,
+    "/app/admin/applications": t.nav.adminApplications,
+    "/app/admin/roles": t.nav.adminRoles,
+    "/app/admin/rules": t.nav.adminRules,
+    "/app/admin/integrations": t.nav.adminIntegrations,
+    "/app/admin/audit": t.nav.adminAudit,
+    "/app/admin/system": t.nav.adminSystem,
+  };
 
   useEffect(() => {
     if (!me) return;
@@ -110,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <span className="flex items-center gap-3">
               <Icon className="h-4 w-4" />
-              {label}
+              {navLabels[href] || label}
             </span>
             {showBadge && (
               <span className="rounded-full bg-brand-700 px-2 py-0.5 text-xs font-semibold text-white">
@@ -147,7 +169,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={signOut}
           className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         >
-          <LogOut className="h-4 w-4" /> Sign out
+          <LogOut className="h-4 w-4" /> {t.nav.signOut}
         </button>
       </div>
     </div>
@@ -156,10 +178,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen lg:pl-64">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="px-6 py-5">
+        <div className="flex items-center justify-between px-6 py-4">
           <Link href="/app">
             <Logo />
           </Link>
+          <LanguageToggle />
         </div>
         {nav}
         {userBlock}
@@ -168,9 +191,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/app">
           <Logo />
         </Link>
-        <button onClick={() => setOpen(true)} className="rounded p-2 text-slate-700 hover:bg-slate-100" aria-label="Open menu">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <LanguageToggle />
+          <button onClick={() => setOpen(true)} className="rounded p-2 text-slate-700 hover:bg-slate-100" aria-label="Open menu">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </header>
       {open && (
         <div className="fixed inset-0 z-30 lg:hidden">

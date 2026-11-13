@@ -3,6 +3,7 @@
 import { Camera, Check, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@/components/ui";
+import { useI18n } from "@/lib/i18n";
 import { normalizeAndOptimizeImage } from "@/lib/imagePrep";
 
 export function GuidedDocumentCapture({
@@ -14,6 +15,7 @@ export function GuidedDocumentCapture({
   onCapture: (file: File) => Promise<void>;
   uploading: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamReady, setStreamReady] = useState(false);
@@ -132,7 +134,7 @@ export function GuidedDocumentCapture({
   if (!open) {
     return (
       <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)} disabled={uploading}>
-        <Camera className="h-3.5 w-3.5" /> Guided camera
+        <Camera className="h-3.5 w-3.5" /> {t.docs.guidedButton}
       </Button>
     );
   }

@@ -71,6 +71,29 @@ async function parseResponse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 2): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status >= 502 && res.status <= 504 && attempt < maxRetries) {
+        attempt++;
+        await new Promise((r) => setTimeout(r, 700 * attempt));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
+      if (attempt < maxRetries) {
+        attempt++;
+        await new Promise((r) => setTimeout(r, 700 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export async function api<T>(
   path: string,
   opts: { method?: string; body?: unknown; query?: Query; signal?: AbortSignal } = {},
@@ -84,7 +107,7 @@ export async function api<T>(
   }
   let res: Response;
   try {
-    res = await fetch(buildUrl(`/api/v1${path}`, opts.query), {
+    res = await fetchWithRetry(buildUrl(`/api/v1${path}`, opts.query), {
       method,
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -105,7 +128,7 @@ export async function apiForm<T>(path: string, formData: FormData, method: "POST
   if (token) headers["X-CSRF-Token"] = token;
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}`, {
+    res = await fetchWithRetry(`/api/v1${path}`, {
       method,
       headers,
       body: formData,
