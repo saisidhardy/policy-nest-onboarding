@@ -90,3 +90,51 @@ All configuration is via environment variables (see `.env.example`). No credenti
 In `APP_ENV=production` the backend refuses to start with a weak `SECRET_KEY` and forces `Secure` cookies.
 If `SMTP_HOST` is empty, email delivery reports `NOT_CONFIGURED` instead of pretending to send.
 Document uploads default to `STORAGE_PROVIDER=local` (`./storage` outside web root) and support S3-compatible storage (`STORAGE_PROVIDER=s3`).
+
+## Production Hardening & Evaluation Tooling
+
+PolicyNest includes automated operational CLIs and evaluator utilities:
+
+### 1. Interactive Demo Persona Switcher
+A persistent floating evaluation drawer is built into the frontend (`DemoPersonaSwitcher.tsx`). It provides one-click instant sign-in across key roles without typing passwords:
+- **STP Candidate** (`posp_stp@policynest.demo`): Auto-approved candidate dashboard.
+- **Reviewer Desk** (`reviewer@policynest.demo`): Operations SLA queue and document inspection.
+- **Compliance Admin** (`admin@policynest.demo`): System configuration and regulatory audit export.
+- Universal Demo Password: `Demo@PolicyNest2026!`
+
+### 2. Statutory IRDAI Appointment Dossier
+- Endpoint: `GET /api/v1/applications/{id}/dossier` (`?format=html` or `?format=json`).
+- Generates an official, print-ready statutory POSP appointment dossier with candidate KYC details, qualification, masked Aadhaar (DPDP Act 2023 compliant), bank verification, 15-hour training completion date, and IRDAI certification number.
+
+### 3. Public Certificate Verification Portal
+- Web Route: `/verify-certificate?number={certificate_number}`
+- Endpoint: `GET /api/v1/training/certificates/{certificate_number}`
+- Allows any insurer, policyholder, or regulator to verify POSP credentials in real-time with an immutable SHA-256 digital verification seal.
+
+### 4. Operational CLIs
+- **Demo Scenario Seeder**:
+  ```bash
+  python -m app.scripts.seed_demo_scenarios [--reset] [--json]
+  ```
+  Seeds 5 realistic end-to-end POSP applications (STP, SLA Breach, Rework, Fraud, Certified).
+- **PostgreSQL Cutover & Pooling Validator**:
+  ```bash
+  python -m app.scripts.postgres_cutover [--database-url URL] [--dry-run]
+  ```
+  Tests PostgreSQL connectivity, pool settings (`pool_size=10, max_overflow=20`), and runs Alembic migrations.
+- **S3 / Cloudflare R2 Storage Benchmark**:
+  ```bash
+  python -m app.scripts.verify_s3_storage [--bucket BUCKET] [--json]
+  ```
+  Validates upload, retrieval, and pre-signed URL generation latencies.
+- **Reviewer SLA Heartbeat & Breach Monitor**:
+  ```bash
+  python -m app.scripts.monitor_sla [--trigger-alert] [--strict]
+  ```
+  Checks pending unassigned applications against the 30-minute SLA threshold.
+- **Regulatory Audit Log CSV Export**:
+  ```bash
+  # Via browser: Admin -> Audit Logs -> "Export Regulatory CSV"
+  # Via API: GET /api/v1/admin/audit-logs/export
+  ```
+
