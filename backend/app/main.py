@@ -20,6 +20,7 @@ from app.api.routes import (
 )
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.rate_limit import limiter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -61,6 +62,10 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
+        rate_limit_resp = limiter.check(request)
+        if rate_limit_resp is not None:
+            return rate_limit_resp
+
         incoming = request.headers.get("x-request-id", "")
         request.state.request_id = incoming[:64] if incoming else uuid.uuid4().hex
         response = await call_next(request)

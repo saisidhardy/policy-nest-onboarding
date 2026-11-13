@@ -12,6 +12,10 @@ function replaceExtensionWithJpg(filename: string): string {
 }
 
 function assessCanvasQuality(ctx: CanvasRenderingContext2D, width: number, height: number): string | null {
+  if (width < 500 || height < 350) {
+    return "Low image resolution. Hold camera closer to capture full details for OCR.";
+  }
+
   try {
     const sampleW = Math.min(240, Math.max(32, width));
     const sampleH = Math.min(240, Math.max(32, height));
@@ -26,13 +30,22 @@ function assessCanvasQuality(ctx: CanvasRenderingContext2D, width: number, heigh
     let lumaSum = 0;
     let diffSum = 0;
     let diffCount = 0;
+    let glareCount = 0;
     const pixels = sampleW * sampleH;
 
     for (let y = 0; y < sampleH; y += 1) {
       for (let x = 0; x < sampleW; x += 1) {
         const idx = (y * sampleW + x) * 4;
-        const luma = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
         lumaSum += luma;
+
+        if (r > 248 && g > 248 && b > 248) {
+          glareCount += 1;
+        }
+
         if (x + 1 < sampleW) {
           const rIdx = idx + 4;
           const rLuma = 0.299 * data[rIdx] + 0.587 * data[rIdx + 1] + 0.114 * data[rIdx + 2];
@@ -44,15 +57,19 @@ function assessCanvasQuality(ctx: CanvasRenderingContext2D, width: number, heigh
 
     const meanLuma = pixels > 0 ? lumaSum / pixels : 128;
     const meanEdge = diffCount > 0 ? diffSum / diffCount : 12;
+    const glareRatio = pixels > 0 ? glareCount / pixels : 0;
 
+    if (glareRatio > 0.18) {
+      return "Direct flash glare detected. Angle camera slightly away from light to prevent washed-out text.";
+    }
     if (meanLuma < 45) {
       return "Photo looks too dark. Move to brighter lighting for clearer text extraction.";
     }
-    if (meanLuma > 242) {
-      return "Strong glare or overexposure detected. Tilt slightly away from direct light.";
+    if (meanLuma > 245) {
+      return "High overexposure detected. Move document away from direct overhead light.";
     }
-    if (meanEdge < 4.5) {
-      return "Low detail / soft focus detected. Hold steady so all text is sharp.";
+    if (meanEdge < 4.2) {
+      return "Low detail / blurry focus detected. Hold camera steady so document text is crisp.";
     }
     return null;
   } catch {

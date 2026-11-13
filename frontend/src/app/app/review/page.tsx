@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Activity, AlertOctagon, CheckCircle2, Clock, FileCheck2, Search, ShieldAlert, UserCheck } from "lucide-react";
+import { AlertOctagon, FileCheck2, Search, ShieldAlert, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -63,6 +63,10 @@ function ReviewerQueueInner() {
 
   useEffect(() => {
     void load();
+    const interval = setInterval(() => {
+      void load();
+    }, 45000);
+    return () => clearInterval(interval);
   }, [load]);
 
   async function quickClaim(app: ReviewQueueItem) {

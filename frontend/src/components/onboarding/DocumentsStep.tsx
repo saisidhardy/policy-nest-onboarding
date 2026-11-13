@@ -141,6 +141,9 @@ export function DocumentsStep({
       await loadVerification();
 
       const ext = uploaded.extraction;
+      if (prepared.qualityWarning && (!ext || ext.quality_status === "OK")) {
+        setNotice(`⚡ Camera Quality Advisory: ${prepared.qualityWarning}`);
+      }
       if (ext && ext.quality_status !== "OK") {
         const msg = `${uploaded.original_filename}: Quality check flagged "${QUALITY_META[ext.quality_status]?.label ?? ext.quality_status}". ${prepared.qualityWarning ?? "Upload a clearer copy."}`;
         setError(msg);

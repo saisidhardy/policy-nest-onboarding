@@ -92,6 +92,42 @@ def test_sla_review_data_structures():
     assert dumped["breached_applications"][0]["reference_code"] == "PN-TEST-001"
 
 
+def test_rate_limiter_sliding_window():
+    from fastapi import Request
+
+    from app.core.rate_limit import InMemorySlidingWindowLimiter, RateLimitRule
+
+    rule = RateLimitRule(path="/api/v1/auth/login", method="POST", max_requests=2, window_seconds=60)
+    test_limiter = InMemorySlidingWindowLimiter(rules=(rule,))
+
+    custom_settings = Settings(
+        database_url="sqlite:///./test.db",
+        secret_key="a" * 32,
+        app_env="development",
+    )
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/api/v1/auth/login",
+        "headers": [],
+        "client": ("192.168.1.100", 12345),
+    }
+    req = Request(scope)
+
+    with patch("app.core.rate_limit.get_settings", return_value=custom_settings):
+        # Call 1: Allowed
+        assert test_limiter.check(req) is None
+        # Call 2: Allowed
+        assert test_limiter.check(req) is None
+        # Call 3: Exceeded -> 429 Too Many Requests
+        res3 = test_limiter.check(req)
+        assert res3 is not None
+        assert res3.status_code == 429
+        assert res3.headers["Retry-After"] == "60"
+        assert res3.headers["X-RateLimit-Remaining"] == "0"
+
+
 if __name__ == "__main__":
     import pathlib
     import tempfile
@@ -109,4 +145,6 @@ if __name__ == "__main__":
     print(" - test_s3_verify_storage_simulation: OK")
     test_sla_review_data_structures()
     print(" - test_sla_review_data_structures: OK")
+    test_rate_limiter_sliding_window()
+    print(" - test_rate_limiter_sliding_window: OK")
     print("ALL TESTS PASSED!")

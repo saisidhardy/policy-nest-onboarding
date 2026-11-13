@@ -10,6 +10,7 @@ from app.rbac.policy import Resource
 from app.schemas.training import (
     BatchRetryOut,
     LmsWebhookPayload,
+    PublicCertificateVerificationOut,
     TrainingOverviewOut,
     TrainingRecordOut,
     TrainingSyncRequest,
@@ -150,3 +151,11 @@ async def receive_lms_webhook(request: Request, db: DB):
     )
     db.commit()
     return result
+
+
+@router.get("/training/certificates/{certificate_number}", response_model=PublicCertificateVerificationOut)
+def verify_certificate_public(
+    certificate_number: str,
+    db: DB,
+):
+    return training_service.verify_public_certificate(db, certificate_number)

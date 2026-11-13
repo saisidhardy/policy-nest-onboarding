@@ -26,6 +26,9 @@ export default function Home() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Logo />
         <nav className="flex items-center gap-2 text-sm">
+          <Link href="/verify-certificate" className="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-slate-100">
+            Verify Certificate
+          </Link>
           <Link href="/login" className="rounded-lg px-4 py-2 font-medium text-slate-700 hover:bg-slate-100">
             Sign in
           </Link>
@@ -65,8 +68,11 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <footer className="mx-auto max-w-6xl px-6 py-8 text-xs text-slate-500">
-        © {new Date().getFullYear()} PolicyNest Insurance Broking
+      <footer className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8 text-xs text-slate-500">
+        <span>© {new Date().getFullYear()} PolicyNest Insurance Broking</span>
+        <Link href="/verify-certificate" className="hover:underline">
+          Public POSP Certificate Verification Portal
+        </Link>
       </footer>
     </div>
   );

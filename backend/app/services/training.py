@@ -20,6 +20,7 @@ from app.schemas.training import (
     LmsAdapterStatusOut,
     LmsSyncLogOut,
     LmsWebhookPayload,
+    PublicCertificateVerificationOut,
     TrainingOverviewOut,
     TrainingQueueItemOut,
     TrainingRecordOut,
@@ -726,4 +727,47 @@ def retry_pending_syncs(db: Session, auth: AuthContext, request: Request) -> Bat
         succeeded=succeeded,
         failed=failed,
         message=f"Retried {attempted} training sync record(s): {succeeded} succeeded, {failed} still failing/unconfigured.",
+    )
+
+
+def verify_public_certificate(db: Session, certificate_number: str) -> PublicCertificateVerificationOut:
+    import hashlib
+
+    normalized = certificate_number.strip().upper()
+    stmt = (
+        select(TrainingRecord, Application, User)
+        .join(Application, TrainingRecord.application_id == Application.id)
+        .join(User, Application.user_id == User.id)
+        .where(TrainingRecord.certificate_number == normalized)
+        .where(TrainingRecord.certification_status == "CERTIFIED")
+    )
+    row = db.execute(stmt).first()
+    if not row:
+        raise AppError(404, "CERTIFICATE_NOT_FOUND", f"Certificate '{certificate_number}' could not be verified.")
+
+    record, app, user = row
+    candidate_name = app.full_name or user.full_name
+    now = utcnow()
+    status = (
+        "EXPIRED"
+        if record.certificate_valid_until and record.certificate_valid_until < now
+        else "ACTIVE"
+    )
+
+    issued_ts = record.certified_at or record.updated_at or now
+    raw_seal = f"POLICYNEST:IRDAI:{normalized}:{candidate_name}:{issued_ts.isoformat()}"
+    seal = hashlib.sha256(raw_seal.encode()).hexdigest()
+
+    return PublicCertificateVerificationOut(
+        certificate_number=normalized,
+        candidate_name=candidate_name,
+        course_code="IRDAI-POSP-15H",
+        course_title="15-Hour Mandatory POSP General & Life Insurance Certification",
+        completed_hours=float(record.completed_hours),
+        exam_score_pct=float(record.exam_score_pct) if record.exam_score_pct is not None else None,
+        status=status,
+        issued_at=issued_ts,
+        valid_until=record.certificate_valid_until,
+        seal_sha256=seal,
+        verified=True,
     )

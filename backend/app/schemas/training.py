@@ -157,3 +157,18 @@ class BatchRetryOut(BaseModel):
     succeeded: int
     failed: int
     message: str
+
+
+class PublicCertificateVerificationOut(BaseModel):
+    certificate_number: str
+    candidate_name: str
+    course_code: str
+    course_title: str
+    completed_hours: float
+    exam_score_pct: float | None
+    status: Literal["ACTIVE", "EXPIRED", "REVOKED"]
+    issued_at: datetime
+    valid_until: datetime | None
+    issuing_authority: str = "PolicyNest POSP Certification Authority (IRDAI Compliant)"
+    seal_sha256: str
+    verified: bool = True

@@ -585,6 +585,21 @@ export interface ReviewSlaStatus {
   timestamp: string;
 }
 
+export interface CertificateVerification {
+  certificate_number: string;
+  candidate_name: string;
+  course_code: string;
+  course_title: string;
+  completed_hours: number;
+  exam_score_pct: number | null;
+  status: "ACTIVE" | "EXPIRED" | "REVOKED";
+  issued_at: string;
+  valid_until: string | null;
+  issuing_authority: string;
+  seal_sha256: string;
+  verified: boolean;
+}
+
 export interface ReviewHistoryItem {
   decision_id: string;
   application_id: string;
