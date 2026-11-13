@@ -34,6 +34,7 @@ def database_status() -> dict:
 
 
 @router.get("/health", summary="Liveness probe")
+@router.get("/health/live", summary="Liveness probe alias")
 def health() -> dict:
     s = get_settings()
     return {"status": "ok", "service": "policynest-api", "version": s.app_version}
