@@ -15,6 +15,7 @@ from app.schemas.review import (
     ReviewClaimRequest,
     ReviewHistoryPageOut,
     ReviewQueuePageOut,
+    ReviewSlaStatusOut,
 )
 from app.services import applications as app_service
 from app.services import review as review_service
@@ -130,3 +131,18 @@ def get_operational_analytics(
 ):
     enforce_policy(request, auth, "analytics:read", Resource(type="application_queue", region=auth.user.region))
     return review_service.get_review_analytics(db, auth)
+
+
+@router.get("/sla-status", response_model=ReviewSlaStatusOut)
+def get_reviewer_sla_status(
+    request: Request,
+    db: DB,
+    auth: AuthContext = Depends(require_permission("application:review")),
+    trigger_alert: bool = Query(default=False),
+):
+    enforce_policy(request, auth, "application:review", Resource(type="application_queue", region=auth.user.region))
+    return review_service.check_review_sla_status(
+        db,
+        trigger_alert=trigger_alert,
+        region_filter=auth.user.region,
+    )

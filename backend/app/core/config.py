@@ -54,6 +54,12 @@ class Settings(BaseSettings):
 
     redis_url: str | None = None
 
+    # Enterprise Observability & Reviewer Queue SLA Alerting
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.1
+    sla_review_unassigned_threshold_minutes: int = 30
+    sla_alert_webhook_url: str | None = None
+
     # Phase 8: Outbound transport, SMS & webhook hardening
     email_max_attempts: int = 3
     integration_http_timeout_seconds: int = 8

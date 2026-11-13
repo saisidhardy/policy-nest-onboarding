@@ -128,3 +128,27 @@ class AssignableReviewerOut(BaseModel):
     email: str
     role_code: str
     region: str | None
+
+
+class BreachedApplicationOut(BaseModel):
+    id: uuid.UUID
+    reference_code: str
+    status: str
+    applicant_name: str | None
+    submitted_at: datetime | None
+    wait_time_minutes: float
+    region: str | None
+
+
+class ReviewSlaStatusOut(BaseModel):
+    status: Literal["HEALTHY", "BREACHED"]
+    sla_threshold_minutes: int
+    total_pending_queue: int
+    total_unassigned: int
+    breach_count: int
+    max_wait_minutes: float
+    oldest_unassigned_application_id: uuid.UUID | None
+    oldest_unassigned_submitted_at: datetime | None
+    breached_applications: list[BreachedApplicationOut]
+    alert_dispatched: bool = False
+    timestamp: datetime

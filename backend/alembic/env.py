@@ -1,10 +1,18 @@
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 
 from alembic import context
 from app.core.config import get_settings
 from app.models import Base
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_, compiler, **kw):  # noqa: ARG001
+    return "JSON"
+
 
 config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):

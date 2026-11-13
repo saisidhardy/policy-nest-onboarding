@@ -26,6 +26,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    if settings.sentry_dsn:
+        try:
+            import sentry_sdk
+
+            sentry_sdk.init(
+                dsn=settings.sentry_dsn,
+                environment=settings.app_env,
+                release=f"policynest-api@{settings.app_version}",
+                traces_sample_rate=settings.sentry_traces_sample_rate,
+            )
+            logging.info("Sentry telemetry initialized for environment=%s", settings.app_env)
+        except Exception as exc:
+            logging.warning("Failed to initialize Sentry telemetry: %s", exc)
+
     app = FastAPI(
         title="PolicyNest API",
         version=settings.app_version,

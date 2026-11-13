@@ -25,6 +25,8 @@ class StorageBackend(Protocol):
 
     def delete_object(self, key: str) -> None: ...
 
+    def get_presigned_url(self, key: str, expires_in: int = 3600) -> str: ...
+
     def status(self) -> StorageStatus: ...
 
 
@@ -69,6 +71,10 @@ class LocalPrivateStorage:
         target = self._path(key)
         if target.is_file():
             target.unlink()
+
+    def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:  # noqa: ARG002
+        _validate_key(key)
+        return f"/api/v1/storage/documents/{key}"
 
     def status(self) -> StorageStatus:
         return StorageStatus(
@@ -122,6 +128,14 @@ class S3StorageBackend:
     def delete_object(self, key: str) -> None:
         _validate_key(key)
         self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:
+        _validate_key(key)
+        return self.client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": self.bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )
 
     def status(self) -> StorageStatus:
         mode = "LOCAL_DEVELOPMENT" if self.endpoint_url and "minio" in self.endpoint_url else "LIVE"

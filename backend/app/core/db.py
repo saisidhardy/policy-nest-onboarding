@@ -9,7 +9,19 @@ from app.core.config import get_settings
 
 @lru_cache
 def get_engine() -> Engine:
-    return create_engine(get_settings().database_url, pool_pre_ping=True, future=True)
+    settings = get_settings()
+    url = settings.database_url
+    engine_kwargs: dict = {"future": True, "pool_pre_ping": True}
+    if url.startswith("postgresql") or "postgres" in url:
+        engine_kwargs.update(
+            {
+                "pool_size": 10,
+                "max_overflow": 20,
+                "pool_timeout": 30,
+                "pool_recycle": 1800,
+            }
+        )
+    return create_engine(url, **engine_kwargs)
 
 
 @lru_cache

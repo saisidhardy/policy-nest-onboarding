@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from typing import Literal
 
 from fastapi import Request
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import AuthContext
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models import (
     Application,
@@ -25,6 +27,7 @@ from app.models.application import REQUIRED_DOC_TYPES
 from app.models.base import utcnow
 from app.schemas.review import (
     AssignableReviewerOut,
+    BreachedApplicationOut,
     FraudEscalationRequest,
     FraudResolutionRequest,
     ReviewAnalyticsOut,
@@ -35,6 +38,7 @@ from app.schemas.review import (
     ReviewQueueItemOut,
     ReviewQueueKpis,
     ReviewQueuePageOut,
+    ReviewSlaStatusOut,
 )
 from app.services import audit
 from app.services.applications import get_application
@@ -668,4 +672,105 @@ def get_review_analytics(db: Session, auth: AuthContext) -> ReviewAnalyticsOut:
         open_appeals_count=open_appeals,
         resolved_appeals_count=resolved_appeals,
         reviewer_productivity=productivity,
+    )
+
+
+def check_review_sla_status(
+    db: Session,
+    *,
+    trigger_alert: bool = False,
+    region_filter: str | None = None,
+) -> ReviewSlaStatusOut:
+    settings = get_settings()
+    threshold = settings.sla_review_unassigned_threshold_minutes
+    now = utcnow()
+
+    stmt = select(Application).where(Application.status.in_(PENDING_REVIEW_STATUSES))
+    if region_filter and region_filter not in ("ALL", None):
+        stmt = stmt.where(Application.region == region_filter)
+
+    pending_apps = list(db.scalars(stmt).all())
+    total_pending = len(pending_apps)
+
+    unassigned = [a for a in pending_apps if a.assigned_reviewer_id is None]
+    total_unassigned = len(unassigned)
+
+    breached_list: list[BreachedApplicationOut] = []
+    max_wait_minutes = 0.0
+    oldest_app_id: uuid.UUID | None = None
+    oldest_submitted_at = None
+
+    for app in unassigned:
+        base_ts = app.submitted_at or app.created_at
+        if base_ts is not None:
+            if base_ts.tzinfo is None and now.tzinfo is not None:
+                base_ts = base_ts.replace(tzinfo=now.tzinfo)
+            wait_seconds = max((now - base_ts).total_seconds(), 0.0)
+            wait_min = round(wait_seconds / 60.0, 1)
+            if wait_min > max_wait_minutes:
+                max_wait_minutes = wait_min
+                oldest_app_id = app.id
+                oldest_submitted_at = app.submitted_at or app.created_at
+
+            if wait_min >= threshold:
+                breached_list.append(
+                    BreachedApplicationOut(
+                        id=app.id,
+                        reference_code=app.reference_code,
+                        status=app.status,
+                        applicant_name=app.full_name,
+                        submitted_at=app.submitted_at or app.created_at,
+                        wait_time_minutes=wait_min,
+                        region=app.region,
+                    )
+                )
+
+    breached_list.sort(key=lambda b: -b.wait_time_minutes)
+    breach_count = len(breached_list)
+    status: Literal["HEALTHY", "BREACHED"] = "BREACHED" if breach_count > 0 else "HEALTHY"
+
+    alert_dispatched = False
+    if (
+        breach_count > 0
+        and (trigger_alert or settings.sla_alert_webhook_url)
+        and settings.sla_alert_webhook_url
+    ):
+        import httpx
+
+        payload = {
+            "event": "REVIEWER_QUEUE_SLA_BREACH",
+            "environment": settings.app_env,
+            "sla_threshold_minutes": threshold,
+            "breach_count": breach_count,
+            "max_wait_minutes": max_wait_minutes,
+            "oldest_unassigned_application_id": str(oldest_app_id) if oldest_app_id else None,
+            "breached_applications": [b.model_dump(mode="json") for b in breached_list[:10]],
+            "timestamp": now.isoformat(),
+        }
+        try:
+            with httpx.Client(timeout=settings.integration_http_timeout_seconds) as client:
+                resp = client.post(
+                    settings.sla_alert_webhook_url,
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": f"PolicyNest-SLADispatcher/{settings.app_version}",
+                    },
+                )
+                alert_dispatched = resp.is_success
+        except Exception:
+            alert_dispatched = False
+
+    return ReviewSlaStatusOut(
+        status=status,
+        sla_threshold_minutes=threshold,
+        total_pending_queue=total_pending,
+        total_unassigned=total_unassigned,
+        breach_count=breach_count,
+        max_wait_minutes=max_wait_minutes,
+        oldest_unassigned_application_id=oldest_app_id,
+        oldest_unassigned_submitted_at=oldest_submitted_at,
+        breached_applications=breached_list,
+        alert_dispatched=alert_dispatched,
+        timestamp=now,
     )
