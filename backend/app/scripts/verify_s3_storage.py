@@ -11,10 +11,18 @@ import hashlib
 import json
 import logging
 import os
+import pathlib
 import sys
 import time
 import uuid
 from typing import Any
+
+# Ensure backend root is on sys.path when invoked directly
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent))
+
+# Ensure fallback settings for standalone invocation
+os.environ.setdefault("SECRET_KEY", "cutover-verification-ephemeral-key-min-32-chars")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./policynest_local.db")
 
 from app.core.config import get_settings
 

@@ -13,7 +13,11 @@ import argparse
 import json
 import logging
 import os
+import pathlib
 import sys
+
+# Ensure backend root is on sys.path when invoked directly
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent))
 
 # Ensure default fallback settings for standalone invocation
 os.environ.setdefault("SECRET_KEY", "cutover-verification-ephemeral-key-min-32-chars")
