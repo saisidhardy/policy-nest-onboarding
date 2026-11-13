@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from sqlalchemy import func, or_, select
 
 from app.api.deps import DB, AuthContext, enforce_policy, require_permission
@@ -284,6 +284,80 @@ def audit_logs(
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = db.scalars(stmt.order_by(AuditLog.id.desc()).offset((page - 1) * page_size).limit(page_size)).all()
     return Page(items=[AuditLogOut.model_validate(r) for r in rows], total=total, page=page, page_size=page_size)
+
+
+@router.get("/audit-logs/export")
+def export_audit_logs_csv(
+    db: DB,
+    _: AuthContext = Depends(require_permission("audit:read")),
+    action: str | None = Query(default=None, max_length=100),
+    outcome: str | None = Query(default=None, pattern="^(SUCCESS|FAILURE|DENIED)$"),
+    actor: str | None = Query(default=None, max_length=320),
+    resource_id: str | None = Query(default=None, max_length=100),
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = Query(default=1000, ge=1, le=5000),
+):
+    import csv
+    import io
+    import json
+
+    stmt = select(AuditLog)
+    if action:
+        stmt = stmt.where(AuditLog.action.ilike(f"{action}%"))
+    if outcome:
+        stmt = stmt.where(AuditLog.outcome == outcome)
+    if actor:
+        stmt = stmt.where(AuditLog.actor_email.ilike(f"%{actor.lower()}%"))
+    if resource_id:
+        stmt = stmt.where(AuditLog.resource_id == resource_id)
+    if date_from:
+        stmt = stmt.where(AuditLog.occurred_at >= date_from)
+    if date_to:
+        stmt = stmt.where(AuditLog.occurred_at <= date_to)
+
+    rows = db.scalars(stmt.order_by(AuditLog.id.desc()).limit(limit)).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Timestamp (UTC)",
+        "Action",
+        "Outcome",
+        "Actor Email",
+        "Actor Role",
+        "Resource Type",
+        "Resource ID",
+        "IP Address",
+        "User Agent",
+        "Request ID",
+        "Details (JSON)",
+    ])
+    for r in rows:
+        writer.writerow([
+            r.occurred_at.isoformat() if r.occurred_at else "",
+            r.action,
+            r.outcome,
+            r.actor_email or "",
+            r.actor_role or "",
+            r.resource_type or "",
+            r.resource_id or "",
+            r.ip_address or "",
+            r.user_agent or "",
+            r.request_id or "",
+            json.dumps(r.details or {}),
+        ])
+
+    content = buf.getvalue().encode("utf-8-sig")  # BOM for Excel compatibility
+    filename = f"policynest_audit_log_{utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 def _storage_integration() -> IntegrationStatus:

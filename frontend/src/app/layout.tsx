@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { DemoPersonaSwitcher } from "@/components/DemoPersonaSwitcher";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { AuthProvider } from "@/lib/auth";
 import { I18nProvider } from "@/lib/i18n";
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <I18nProvider>
             <ServiceWorkerRegistration />
             {children}
+            <DemoPersonaSwitcher />
           </I18nProvider>
         </AuthProvider>
       </body>

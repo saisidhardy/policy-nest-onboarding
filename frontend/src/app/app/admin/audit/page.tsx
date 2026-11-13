@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -93,6 +94,21 @@ function AuditLogView() {
           >
             Clear
           </Button>
+          <div className="ml-auto">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const qs = new URLSearchParams();
+                if (draft.action) qs.set("action", draft.action);
+                if (draft.outcome) qs.set("outcome", draft.outcome);
+                if (draft.actor) qs.set("actor", draft.actor);
+                window.open(`/api/v1/admin/audit-logs/export?${qs.toString()}`, "_blank");
+              }}
+            >
+              <Download className="h-4 w-4" /> Export Regulatory CSV
+            </Button>
+          </div>
         </form>
         {error && <Alert tone="error" className="m-5">{error}</Alert>}
         {!data ? (

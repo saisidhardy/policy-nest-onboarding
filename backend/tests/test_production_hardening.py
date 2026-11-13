@@ -1,6 +1,10 @@
 """Unit tests for PostgreSQL pooling, S3 presigned URLs, Sentry telemetry & SLA monitoring."""
 
+import pathlib
+import sys
 from unittest.mock import patch
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from app.core.config import Settings
 from app.core.db import get_engine
@@ -128,6 +132,55 @@ def test_rate_limiter_sliding_window():
         assert res3.headers["X-RateLimit-Remaining"] == "0"
 
 
+def test_public_certificate_verification_schema():
+    from datetime import datetime, timezone
+
+    from app.schemas.training import PublicCertificateVerificationOut
+
+    cert = PublicCertificateVerificationOut(
+        certificate_number="POSP-2026-CERT-8841",
+        candidate_name="Priya Patel",
+        course_code="IRDAI-POSP-15H",
+        course_title="15-Hour Mandatory POSP General & Life Insurance Certification",
+        completed_hours=15.0,
+        exam_score_pct=88.0,
+        status="ACTIVE",
+        issued_at=datetime.now(timezone.utc),
+        valid_until=None,
+        seal_sha256="abcdef1234567890",
+        verified=True,
+    )
+    dumped = cert.model_dump(mode="json")
+    assert dumped["certificate_number"] == "POSP-2026-CERT-8841"
+    assert dumped["candidate_name"] == "Priya Patel"
+    assert dumped["status"] == "ACTIVE"
+    assert dumped["verified"] is True
+
+
+def test_dossier_data_structure_validation():
+    sample_dossier = {
+        "reference_code": "PN-2026-00123",
+        "candidate_name": "Rohan Sharma",
+        "status": "APPROVED",
+        "dob": "1994-06-15",
+        "gender": "MALE",
+        "mobile": "+91 98765 43210",
+        "email": "rohan@example.com",
+        "pan_number": "ABCDE1234F",
+        "aadhaar_masked": "XXXX-XXXX-9876",
+        "address": "123 MG Road, Bengaluru, Karnataka - 560001",
+        "education": "GRADUATION - CBSE (Passing Year: 2016)",
+        "bank": "HDFC Bank (IFSC: HDFC0001234, Account: ****1234)",
+        "rules_outcome": "AUTO_APPROVE",
+        "training_status": "CERTIFIED",
+        "certificate_number": "POSP-2026-CERT-1122",
+        "certified_at": "12 November 2026",
+    }
+    assert sample_dossier["reference_code"].startswith("PN-")
+    assert "XXXX-XXXX-" in sample_dossier["aadhaar_masked"]
+    assert sample_dossier["training_status"] == "CERTIFIED"
+
+
 if __name__ == "__main__":
     import pathlib
     import tempfile
@@ -147,4 +200,8 @@ if __name__ == "__main__":
     print(" - test_sla_review_data_structures: OK")
     test_rate_limiter_sliding_window()
     print(" - test_rate_limiter_sliding_window: OK")
+    test_public_certificate_verification_schema()
+    print(" - test_public_certificate_verification_schema: OK")
+    test_dossier_data_structure_validation()
+    print(" - test_dossier_data_structure_validation: OK")
     print("ALL TESTS PASSED!")
