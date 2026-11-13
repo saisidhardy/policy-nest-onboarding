@@ -1,6 +1,20 @@
 "use client";
 
-import { ChevronDown, ChevronUp, ExternalLink, LogOut, ShieldCheck, Sparkles, User, UserCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  GraduationCap,
+  LogOut,
+  RefreshCw,
+  Scale,
+  ShieldCheck,
+  Sparkles,
+  User,
+  UserCheck,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
@@ -12,29 +26,73 @@ interface DemoPersona {
   email: string;
   route: string;
   description: string;
+  category: "candidate" | "ops" | "admin";
 }
 
 const DEMO_PERSONAS: DemoPersona[] = [
   {
-    label: "STP Applicant",
+    label: "STP Candidate",
     role: "Candidate",
     email: "posp_stp@policynest.demo",
     route: "/app",
-    description: "Auto-approved POSP candidate",
+    description: "Auto-approved, 0 mismatch",
+    category: "candidate",
+  },
+  {
+    label: "Rework Required",
+    role: "Candidate",
+    email: "posp_rework@policynest.demo",
+    route: "/app",
+    description: "Bilingual EN/HI correction checklist",
+    category: "candidate",
+  },
+  {
+    label: "Fraud Investigation",
+    role: "Candidate",
+    email: "posp_fraud@policynest.demo",
+    route: "/app",
+    description: "Biometric mismatch & fraud flagged",
+    category: "candidate",
+  },
+  {
+    label: "Adverse Appeal",
+    role: "Candidate",
+    email: "posp_appeal@policynest.demo",
+    route: "/app",
+    description: "Gazetted marriage name appeal",
+    category: "candidate",
+  },
+  {
+    label: "LMS In-Progress",
+    role: "Candidate",
+    email: "posp_training@policynest.demo",
+    route: "/app",
+    description: "15h training 56% completed",
+    category: "candidate",
+  },
+  {
+    label: "Certified POSP",
+    role: "Candidate",
+    email: "posp_certified@policynest.demo",
+    route: "/app",
+    description: "Exam 88%, IRDAI certificate issued",
+    category: "candidate",
   },
   {
     label: "Reviewer Desk",
     role: "Operations",
     email: "reviewer@policynest.demo",
     route: "/app/review",
-    description: "SLA review queue & doc inspect",
+    description: "SLA queue, SLA alerts & doc review",
+    category: "ops",
   },
   {
     label: "Compliance Admin",
     role: "Admin",
     email: "admin@policynest.demo",
     route: "/app/admin/audit",
-    description: "Regulatory audit export & logs",
+    description: "System config & regulatory CSV export",
+    category: "admin",
   },
 ];
 
@@ -65,6 +123,17 @@ export function DemoPersonaSwitcher() {
     }
   }
 
+  function getPersonaIcon(persona: DemoPersona) {
+    if (persona.category === "admin") return <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />;
+    if (persona.category === "ops") return <UserCheck className="h-3.5 w-3.5 text-amber-600" />;
+    if (persona.label.includes("Fraud")) return <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />;
+    if (persona.label.includes("Rework")) return <RefreshCw className="h-3.5 w-3.5 text-orange-600" />;
+    if (persona.label.includes("Appeal")) return <Scale className="h-3.5 w-3.5 text-purple-600" />;
+    if (persona.label.includes("LMS")) return <BookOpen className="h-3.5 w-3.5 text-indigo-600" />;
+    if (persona.label.includes("Certified")) return <GraduationCap className="h-3.5 w-3.5 text-teal-600" />;
+    return <User className="h-3.5 w-3.5 text-blue-600" />;
+  }
+
   return (
     <div className="fixed bottom-4 left-4 z-50 print:hidden font-sans">
       {!isOpen ? (
@@ -83,7 +152,7 @@ export function DemoPersonaSwitcher() {
           <ChevronUp className="h-3 w-3 text-slate-400" />
         </button>
       ) : (
-        <div className="w-80 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-slate-900/10">
+        <div className="w-84 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-slate-900/10">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
@@ -129,7 +198,7 @@ export function DemoPersonaSwitcher() {
             <p className="mt-2 rounded bg-rose-50 p-2 text-[11px] text-rose-700">{errorMsg}</p>
           )}
 
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-3 max-h-72 overflow-y-auto space-y-1.5 pr-1">
             {DEMO_PERSONAS.map((p) => {
               const isCurrent = me?.user.email.toLowerCase() === p.email.toLowerCase();
               const isLoading = switching === p.email;
@@ -139,19 +208,17 @@ export function DemoPersonaSwitcher() {
                   type="button"
                   disabled={isLoading}
                   onClick={() => switchPersona(p)}
-                  className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition ${
+                  className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs transition ${
                     isCurrent
                       ? "border-brand-500 bg-brand-50/50 text-brand-900"
                       : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    {p.role === "Candidate" && <User className="h-3.5 w-3.5 text-blue-600" />}
-                    {p.role === "Operations" && <UserCheck className="h-3.5 w-3.5 text-amber-600" />}
-                    {p.role === "Admin" && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
-                    <div>
-                      <p className="font-semibold text-slate-900">{p.label}</p>
-                      <p className="text-[10px] text-slate-500">{p.description}</p>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                    {getPersonaIcon(p)}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900">{p.label}</p>
+                      <p className="truncate text-[10px] text-slate-500">{p.description}</p>
                     </div>
                   </div>
                   {isLoading ? (
@@ -159,14 +226,14 @@ export function DemoPersonaSwitcher() {
                   ) : isCurrent ? (
                     <span className="text-[10px] font-bold text-brand-700">Active</span>
                   ) : (
-                    <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-600">Switch →</span>
+                    <span className="text-[10px] font-medium text-slate-400">Switch →</span>
                   )}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-3 border-t border-slate-100 pt-2">
+          <div className="mt-3 border-t border-slate-100 pt-2 space-y-1">
             <button
               type="button"
               onClick={() => {

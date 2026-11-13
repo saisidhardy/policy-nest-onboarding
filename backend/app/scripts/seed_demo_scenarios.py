@@ -30,15 +30,30 @@ os.environ.setdefault("SECRET_KEY", "cutover-verification-ephemeral-key-min-32-c
 os.environ.setdefault("DATABASE_URL", "sqlite:///./policynest_local.db")
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 
 from app.core.db import get_sessionmaker
 from app.core.security import hash_password
 from app.models.application import Application
 from app.models.base import utcnow
-from app.models.rules import ApplicationDecision, RuleExecution
+from app.models.rules import ApplicationAppeal, ApplicationDecision, RuleExecution
 from app.models.training import TrainingRecord
 from app.models.user import Role, User
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_, compiler, **kw):
+    return "JSON"
+
+@compiles(UUID, "sqlite")
+def _compile_uuid_sqlite(type_, compiler, **kw):
+    return "CHAR(36)"
+
+@compiles(ARRAY, "sqlite")
+def _compile_array_sqlite(type_, compiler, **kw):
+    return "TEXT"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("seed_demo_scenarios")
@@ -77,6 +92,36 @@ DEMO_ACCOUNTS = [
         "region": "WEST",
     },
     {
+        "email": "posp_regional@policynest.demo",
+        "name": "Ananya Das",
+        "role_code": "APPLICANT",
+        "region": "EAST",
+    },
+    {
+        "email": "posp_appeal@policynest.demo",
+        "name": "Kavita Verma",
+        "role_code": "APPLICANT",
+        "region": "NORTH",
+    },
+    {
+        "email": "posp_bank@policynest.demo",
+        "name": "Mohammed Abdul Rahman Siddiqui",
+        "role_code": "APPLICANT",
+        "region": "SOUTH",
+    },
+    {
+        "email": "posp_training@policynest.demo",
+        "name": "Deepak Joshi",
+        "role_code": "APPLICANT",
+        "region": "NORTH",
+    },
+    {
+        "email": "posp_age@policynest.demo",
+        "name": "Aditya Varma",
+        "role_code": "APPLICANT",
+        "region": "SOUTH",
+    },
+    {
         "email": "reviewer@policynest.demo",
         "name": "Neha Verma (Review Officer)",
         "role_code": "SUPERVISOR",
@@ -97,7 +142,13 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
     table_names = inspect(engine).get_table_names()
     if "users" not in table_names or "applications" not in table_names:
-        raise RuntimeError("Database tables are not initialized. Run postgres_cutover or migrations first.")
+        logger.info("Initializing database schema from SQLAlchemy Base metadata...")
+        import app.models  # noqa: F401
+        from app.models.base import Base
+        Base.metadata.create_all(engine)
+        table_names = inspect(engine).get_table_names()
+        if "users" not in table_names or "applications" not in table_names:
+            raise RuntimeError("Database tables are not initialized. Run postgres_cutover or migrations first.")
 
     now = utcnow()
     created_users: dict[str, User] = {}
@@ -447,6 +498,351 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
             "applicant": "Priya Patel",
             "login": "posp_certified@policynest.demo",
             "highlight": "15 hours LMS completed, exam score 88%, verifiable IRDAI certificate code POSP-2026-CERT-8841.",
+        }
+    )
+
+    # --- Scenario 6: Vernacular Hindi Candidate & State Board Marksheet ---
+    user_reg = created_users["posp_regional@policynest.demo"]
+    app_reg = session.scalar(select(Application).where(Application.reference_code == "PN-DEMO-REG-006"))
+    if not app_reg:
+        app_reg = Application(
+            reference_code="PN-DEMO-REG-006",
+            user_id=user_reg.id,
+            status="KYC_APPROVED",
+            current_step=6,
+            region="EAST",
+            preferred_language="hi",
+            channel="DIRECT_PORTAL",
+            full_name="Ananya Das",
+            date_of_birth=datetime.date(1997, 10, 5),
+            gender="FEMALE",
+            father_or_spouse_name="Subhash Das",
+            mobile="+919833445566",
+            email="posp_regional@policynest.demo",
+            pan_number="ABCPA4321Q",
+            aadhaar_last4="5432",
+            address_line1="Boring Road, Anandpuri",
+            city="Patna",
+            state="Bihar",
+            pincode="800001",
+            same_as_permanent=True,
+            education_level="HIGHER_SECONDARY",
+            board_name="Bihar School Examination Board (BSEB)",
+            passing_year=2015,
+            account_holder_name="Ananya Das",
+            bank_name="Bank of India",
+            ifsc_code="BKID0004401",
+            account_number_last4="2233",
+            account_number_masked="••••••••2233",
+            consent_terms=True,
+            consent_kyc_processing=True,
+            declaration_no_other_posp=True,
+            declared_at=now - datetime.timedelta(hours=4),
+            submitted_at=now - datetime.timedelta(hours=4),
+        )
+        session.add(app_reg)
+        session.flush()
+
+        exec_reg = RuleExecution(
+            application_id=app_reg.id,
+            ruleset_version=1,
+            outcome="PASS",
+            executed_at=now - datetime.timedelta(hours=4),
+            reasons_evaluated=["STATE_BOARD_VERIFIED", "VERNACULAR_LOCALIZATION_OK"],
+        )
+        session.add(exec_reg)
+
+    scenarios.append(
+        {
+            "id": str(app_reg.id),
+            "reference_code": "PN-DEMO-REG-006",
+            "scenario": "Vernacular Hindi & State Board",
+            "status": "KYC_APPROVED",
+            "applicant": "Ananya Das",
+            "login": "posp_regional@policynest.demo",
+            "highlight": "Vernacular Hindi preferred, Bihar State Board marksheet verified, enrolled in Hindi modules.",
+        }
+    )
+
+    # --- Scenario 7: Adverse Decision Appeal Under Review ---
+    user_apl = created_users["posp_appeal@policynest.demo"]
+    app_apl = session.scalar(select(Application).where(Application.reference_code == "PN-DEMO-APL-007"))
+    if not app_apl:
+        app_apl = Application(
+            reference_code="PN-DEMO-APL-007",
+            user_id=user_apl.id,
+            status="IN_REVIEW",
+            current_step=6,
+            region="NORTH",
+            preferred_language="en",
+            channel="DIRECT_PORTAL",
+            full_name="Kavita Verma",
+            date_of_birth=datetime.date(1991, 4, 18),
+            gender="FEMALE",
+            father_or_spouse_name="Vikas Verma",
+            mobile="+919877001122",
+            email="posp_appeal@policynest.demo",
+            pan_number="ABCPS6543Z",
+            aadhaar_last4="8765",
+            address_line1="C-4, Lajpat Nagar",
+            city="New Delhi",
+            state="Delhi",
+            pincode="110024",
+            same_as_permanent=True,
+            education_level="GRADUATE",
+            board_name="Delhi University",
+            passing_year=2012,
+            account_holder_name="Kavita Verma",
+            bank_name="Axis Bank",
+            ifsc_code="UTIB0000005",
+            account_number_last4="9911",
+            account_number_masked="••••••••9911",
+            consent_terms=True,
+            consent_kyc_processing=True,
+            declaration_no_other_posp=True,
+            declared_at=now - datetime.timedelta(days=1),
+            submitted_at=now - datetime.timedelta(days=1),
+        )
+        session.add(app_apl)
+        session.flush()
+
+        dec_apl = ApplicationDecision(
+            application_id=app_apl.id,
+            decided_by_user_id=reviewer_user.id,
+            decision="REJECTED",
+            previous_status="IN_REVIEW",
+            new_status="REJECTED",
+            reason_codes=["NAME_MISMATCH_PAN_VS_BANK"],
+            reason_text="PAN holder name 'Kavita Sharma' differs from bank account holder 'Kavita Verma'.",
+            created_at=now - datetime.timedelta(hours=18),
+        )
+        session.add(dec_apl)
+        session.flush()
+
+        appeal_record = ApplicationAppeal(
+            application_id=app_apl.id,
+            submitted_by_user_id=user_apl.id,
+            status="OPEN",
+            appeal_reason="Legal surname change post marriage from Sharma to Verma.",
+            supporting_notes="Uploaded Government Gazette notification and Marriage Certificate registration #DL-2024-MC-8812.",
+        )
+        session.add(appeal_record)
+
+    scenarios.append(
+        {
+            "id": str(app_apl.id),
+            "reference_code": "PN-DEMO-APL-007",
+            "scenario": "Adverse Decision Appeal",
+            "status": "APPEAL_OPEN",
+            "applicant": "Kavita Verma",
+            "login": "posp_appeal@policynest.demo",
+            "highlight": "Phase 4 statutory appeal workflow with legal gazetted name change proof attached for supervisor.",
+        }
+    )
+
+    # --- Scenario 8: Complex Indian Name 8-Tier Token Permutation Match ---
+    user_bnk = created_users["posp_bank@policynest.demo"]
+    app_bnk = session.scalar(select(Application).where(Application.reference_code == "PN-DEMO-BNK-008"))
+    if not app_bnk:
+        app_bnk = Application(
+            reference_code="PN-DEMO-BNK-008",
+            user_id=user_bnk.id,
+            status="KYC_APPROVED",
+            current_step=6,
+            region="SOUTH",
+            preferred_language="en",
+            channel="DIRECT_PORTAL",
+            full_name="Mohammed Abdul Rahman Siddiqui",
+            date_of_birth=datetime.date(1993, 12, 1),
+            gender="MALE",
+            father_or_spouse_name="Abdul Rahman Siddiqui",
+            mobile="+919944556677",
+            email="posp_bank@policynest.demo",
+            pan_number="XYZPS9876M",
+            aadhaar_last4="6543",
+            address_line1="Banjara Hills Road 12",
+            city="Hyderabad",
+            state="Telangana",
+            pincode="500034",
+            same_as_permanent=True,
+            education_level="GRADUATE",
+            board_name="Osmania University",
+            passing_year=2014,
+            account_holder_name="Mohammed Abdul Rahman Siddiqui",
+            bank_name="ICICI Bank",
+            ifsc_code="ICIC0000047",
+            account_number_last4="7744",
+            account_number_masked="••••••••7744",
+            consent_terms=True,
+            consent_kyc_processing=True,
+            declaration_no_other_posp=True,
+            declared_at=now - datetime.timedelta(hours=6),
+            submitted_at=now - datetime.timedelta(hours=6),
+        )
+        session.add(app_bnk)
+        session.flush()
+
+        exec_bnk = RuleExecution(
+            application_id=app_bnk.id,
+            ruleset_version=1,
+            outcome="PASS",
+            executed_at=now - datetime.timedelta(hours=6),
+            reasons_evaluated=[
+                "TIER_5_TOKEN_PERMUTATION_MATCH",
+                "BANK_PENNY_DROP_ACRONYM_RESOLVED",
+            ],
+        )
+        session.add(exec_bnk)
+
+    scenarios.append(
+        {
+            "id": str(app_bnk.id),
+            "reference_code": "PN-DEMO-BNK-008",
+            "scenario": "Multi-Word Name Permutation",
+            "status": "KYC_APPROVED",
+            "applicant": "Mohammed Abdul Rahman Siddiqui",
+            "login": "posp_bank@policynest.demo",
+            "highlight": "8-Tier Indian name engine resolved bank beneficiary acronym 'M A R SIDDIQUI' with 88% confidence.",
+        }
+    )
+
+    # --- Scenario 9: Mid-Module Active LMS Training ---
+    user_tr = created_users["posp_training@policynest.demo"]
+    app_tr = session.scalar(select(Application).where(Application.reference_code == "PN-DEMO-LMS-009"))
+    if not app_tr:
+        app_tr = Application(
+            reference_code="PN-DEMO-LMS-009",
+            user_id=user_tr.id,
+            status="TRAINING_IN_PROGRESS",
+            current_step=6,
+            region="NORTH",
+            preferred_language="en",
+            channel="DIRECT_PORTAL",
+            full_name="Deepak Joshi",
+            date_of_birth=datetime.date(1994, 9, 12),
+            gender="MALE",
+            father_or_spouse_name="Harish Joshi",
+            mobile="+919899112233",
+            email="posp_training@policynest.demo",
+            pan_number="ABCPA3344K",
+            aadhaar_last4="4321",
+            address_line1="Rajpur Road",
+            city="Dehradun",
+            state="Uttarakhand",
+            pincode="248001",
+            same_as_permanent=True,
+            education_level="GRADUATE",
+            board_name="Uttarakhand Technical University",
+            passing_year=2016,
+            account_holder_name="Deepak Joshi",
+            bank_name="Canara Bank",
+            ifsc_code="CNRB0001234",
+            account_number_last4="5511",
+            account_number_masked="••••••••5511",
+            consent_terms=True,
+            consent_kyc_processing=True,
+            declaration_no_other_posp=True,
+            declared_at=now - datetime.timedelta(days=2),
+            submitted_at=now - datetime.timedelta(days=2),
+        )
+        session.add(app_tr)
+        session.flush()
+
+        tr_active = TrainingRecord(
+            application_id=app_tr.id,
+            user_id=user_tr.id,
+            course_code="IRDAI-POSP-15H",
+            course_title="15-Hour Mandatory POSP General & Life Insurance Certification",
+            eligibility_status="ELIGIBLE",
+            lms_provider="sandbox",
+            is_simulated=True,
+            enrollment_status="IN_PROGRESS",
+            required_hours=Decimal("15.00"),
+            completed_hours=Decimal("8.50"),
+            progress_pct=Decimal("56.67"),
+            enrolled_at=now - datetime.timedelta(days=1),
+            started_at=now - datetime.timedelta(hours=14),
+            exam_status="NOT_ATTEMPTED",
+            certification_status="PENDING_EXAM",
+        )
+        session.add(tr_active)
+
+    scenarios.append(
+        {
+            "id": str(app_tr.id),
+            "reference_code": "PN-DEMO-LMS-009",
+            "scenario": "LMS Training (56% Complete)",
+            "status": "TRAINING_IN_PROGRESS",
+            "applicant": "Deepak Joshi",
+            "login": "posp_training@policynest.demo",
+            "highlight": "8.5 / 15.0 hours logged. 3 modules completed, ready to resume module 4 and take practice test.",
+        }
+    )
+
+    # --- Scenario 10: IRDAI 18-Year Minimum Age Boundary Validation ---
+    user_age = created_users["posp_age@policynest.demo"]
+    app_age = session.scalar(select(Application).where(Application.reference_code == "PN-DEMO-AGE-010"))
+    if not app_age:
+        age_18_dob = (now - datetime.timedelta(days=(18 * 365 + 5))).date()
+        app_age = Application(
+            reference_code="PN-DEMO-AGE-010",
+            user_id=user_age.id,
+            status="KYC_APPROVED",
+            current_step=6,
+            region="SOUTH",
+            preferred_language="en",
+            channel="DIRECT_PORTAL",
+            full_name="Aditya Varma",
+            date_of_birth=age_18_dob,
+            gender="MALE",
+            father_or_spouse_name="Kishore Varma",
+            mobile="+919847009988",
+            email="posp_age@policynest.demo",
+            pan_number="ABCPA1122D",
+            aadhaar_last4="9876",
+            address_line1="Marine Drive",
+            city="Kochi",
+            state="Kerala",
+            pincode="682031",
+            same_as_permanent=True,
+            education_level="HIGHER_SECONDARY",
+            board_name="Kerala State Board",
+            passing_year=now.year - 1,
+            account_holder_name="Aditya Varma",
+            bank_name="Federal Bank",
+            ifsc_code="FDRL0001001",
+            account_number_last4="3322",
+            account_number_masked="••••••••3322",
+            consent_terms=True,
+            consent_kyc_processing=True,
+            declaration_no_other_posp=True,
+            declared_at=now - datetime.timedelta(hours=1),
+            submitted_at=now - datetime.timedelta(hours=1),
+        )
+        session.add(app_age)
+        session.flush()
+
+        exec_age = RuleExecution(
+            application_id=app_age.id,
+            ruleset_version=1,
+            outcome="PASS",
+            executed_at=now - datetime.timedelta(hours=1),
+            reasons_evaluated=[
+                "MINIMUM_AGE_18_COMPLIANT",
+                "CLASS_10_QUALIFICATION_VALID",
+            ],
+        )
+        session.add(exec_age)
+
+    scenarios.append(
+        {
+            "id": str(app_age.id),
+            "reference_code": "PN-DEMO-AGE-010",
+            "scenario": "Age 18 Boundary Compliance",
+            "status": "KYC_APPROVED",
+            "applicant": "Aditya Varma",
+            "login": "posp_age@policynest.demo",
+            "highlight": "Candidate exactly 18 years old. Automated IRDAI Guidelines 2016 statutory age rule passed.",
         }
     )
 
