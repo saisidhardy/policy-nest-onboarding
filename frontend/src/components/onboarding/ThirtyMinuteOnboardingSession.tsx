@@ -8,28 +8,21 @@ import {
   Camera,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Eye,
   FileCheck2,
-  HelpCircle,
-  Maximize2,
-  RefreshCw,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   UploadCloud,
   Zap,
 } from "lucide-react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Badge, Button, Card } from "@/components/ui";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui";
 import { api, apiForm, ApiError } from "@/lib/api";
-import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
+import { REQUIRED_DOCUMENTS } from "@/lib/constants";
 import { normalizeAndOptimizeImage } from "@/lib/imagePrep";
 import type {
   ApplicationDetail,
   ApplicationDocument,
-  ApplicationVerificationReport,
-  DocumentExtraction,
   DocumentType,
 } from "@/lib/types";
 import { DocumentPreviewModal } from "./DocumentPreviewModal";

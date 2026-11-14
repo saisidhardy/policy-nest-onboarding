@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, History, Sparkles, Timer, UploadCloud, Zap } from "lucide-react";
+import { Check, History, Timer, UploadCloud, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

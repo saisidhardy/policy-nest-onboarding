@@ -185,7 +185,7 @@ function ApplicationDetailView() {
             </div>
             <p className="text-base font-bold text-slate-900">{app.pan_number || "PAN Query"}</p>
             <p className="text-xs text-slate-600">
-              Individual Entity ('P' Validated) · Name match: <strong>Pass</strong> · Latency: 112ms
+              Individual Entity (&apos;P&apos; Validated) · Name match: <strong>Pass</strong> · Latency: 112ms
             </p>
           </div>
 

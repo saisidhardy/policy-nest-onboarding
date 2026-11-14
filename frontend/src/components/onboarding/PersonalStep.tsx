@@ -127,11 +127,11 @@ export function PersonalStep({
                 /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan_number) ? (
                   form.pan_number[3] === "P" ? (
                     <span className="font-semibold text-emerald-700">
-                      ✓ CBDT Master Structure: Valid Individual PAN (4th character 'P' verified)
+                      ✓ CBDT Master Structure: Valid Individual PAN (4th character &apos;P&apos; verified)
                     </span>
                   ) : (
                     <span className="font-semibold text-rose-600">
-                      ⚠️ 4th letter is '{form.pan_number[3]}' (Non-Individual). IRDAI requires an Individual PAN.
+                      ⚠️ 4th letter is &apos;{form.pan_number[3]}&apos; (Non-Individual). IRDAI requires an Individual PAN.
                     </span>
                   )
                 ) : (

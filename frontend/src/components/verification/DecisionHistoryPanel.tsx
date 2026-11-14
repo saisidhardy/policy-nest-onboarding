@@ -11,7 +11,6 @@ import {
   MessageSquare,
   RefreshCw,
   Scale,
-  Send,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
