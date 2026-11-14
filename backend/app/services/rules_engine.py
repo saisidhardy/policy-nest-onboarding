@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from fastapi import Request
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext
@@ -952,6 +952,108 @@ def evaluate_application(
             "REVIEWER_DISCRETION",
             {"rework_count": app.rework_count, "threshold": cfg.max_rework_cycles_before_human},
         )
+
+    # ------------------------------------------------------------------
+    # CROSS-APPLICATION ANOMALY & FRAUD RING DETECTION (Capability 7)
+    # ------------------------------------------------------------------
+    # 1. Document Hash Collision (Stolen/Reused KYC Document Ring)
+    doc_hashes = [d.sha256_hash for d in current_docs if d.sha256_hash]
+    if doc_hashes:
+        colliding_row = db.execute(
+            select(ApplicationDocument, Application)
+            .join(Application, ApplicationDocument.application_id == Application.id)
+            .where(
+                ApplicationDocument.application_id != app.id,
+                ApplicationDocument.sha256_hash.in_(doc_hashes),
+                Application.id != (app.parent_application_id or uuid.uuid4()),
+                Application.parent_application_id != app.id,
+            )
+        ).first()
+
+        if colliding_row:
+            c_doc, c_app = colliding_row
+            fraud_msg = (
+                f"Cross-application document hash collision detected: {c_doc.doc_type} "
+                f"matches document in application {c_app.reference_code}. Suspected document syndication/identity reuse ring."
+            )
+            risks.append({"code": "ANOMALY_DUPLICATE_DOCUMENT", "level": "HIGH", "message": fraud_msg})
+            app.fraud_flag = True
+            app.fraud_escalated_at = app.fraud_escalated_at or utcnow()
+            app.fraud_reason = app.fraud_reason or fraud_msg
+            add_rule(
+                "ANOMALY_DUPLICATE_DOCUMENT",
+                "RISK",
+                "Cross-Application Document Deduplication",
+                "HUMAN_REVIEW",
+                "HUMAN_ONLY",
+                fraud_msg,
+                "REVIEWER_DISCRETION",
+                {"colliding_application": c_app.reference_code, "doc_type": c_doc.doc_type},
+            )
+
+    # 2. Shared Bank Account / Mule Account Syndicate Detection
+    if app.ifsc_code and app.account_number_last4:
+        mule_account_app = db.scalar(
+            select(Application).where(
+                Application.id != app.id,
+                Application.ifsc_code == app.ifsc_code,
+                Application.account_number_last4 == app.account_number_last4,
+                Application.pan_number != app.pan_number,
+                Application.status.in_(ACTIVE_APPLICATION_STATUSES),
+                Application.id != (app.parent_application_id or uuid.uuid4()),
+                Application.parent_application_id != app.id,
+            )
+        )
+        if mule_account_app:
+            mule_msg = (
+                f"Shared bank account detected across distinct PANs: IFSC {app.ifsc_code} "
+                f"and account ending in {app.account_number_last4} already linked to application {mule_account_app.reference_code}. "
+                "Potential mule account / commission diversion syndicate."
+            )
+            risks.append({"code": "ANOMALY_SHARED_BANK_ACCOUNT", "level": "HIGH", "message": mule_msg})
+            app.fraud_flag = True
+            app.fraud_escalated_at = app.fraud_escalated_at or utcnow()
+            app.fraud_reason = app.fraud_reason or mule_msg
+            add_rule(
+                "ANOMALY_SHARED_BANK_ACCOUNT",
+                "RISK",
+                "Cross-Application Mule Account Ring Detection",
+                "HUMAN_REVIEW",
+                "HUMAN_ONLY",
+                mule_msg,
+                "BANK_NAME_MISMATCH",
+                {"colliding_application": mule_account_app.reference_code},
+            )
+
+    # 3. Contact Stacking (Multiple distinct PANs under same mobile)
+    if app.mobile and len(app.mobile) >= 10 and app.pan_number:
+        shared_contact_count = db.scalar(
+            select(func.count(func.distinct(Application.pan_number))).where(
+                Application.id != app.id,
+                Application.mobile == app.mobile,
+                Application.pan_number != app.pan_number,
+                Application.status.in_(ACTIVE_APPLICATION_STATUSES),
+            )
+        )
+        if shared_contact_count and shared_contact_count >= 2:
+            contact_msg = (
+                f"Contact stacking detected: Mobile {app.mobile} is linked to {shared_contact_count} other distinct PAN profiles. "
+                "Identity broker or bulk submission anomaly flagged for compliance verification."
+            )
+            risks.append({"code": "ANOMALY_IDENTITY_STACKING", "level": "HIGH", "message": contact_msg})
+            app.fraud_flag = True
+            app.fraud_escalated_at = app.fraud_escalated_at or utcnow()
+            app.fraud_reason = app.fraud_reason or contact_msg
+            add_rule(
+                "ANOMALY_IDENTITY_STACKING",
+                "RISK",
+                "Multi-Application Contact Stacking Detection",
+                "HUMAN_REVIEW",
+                "HUMAN_ONLY",
+                contact_msg,
+                "REVIEWER_DISCRETION",
+                {"shared_pan_count": int(shared_contact_count)},
+            )
 
     # Unconfigured external verification provider disclosure
     unconfigured_providers = [c.check_type for c in checks if c.status == "NOT_CONFIGURED"]

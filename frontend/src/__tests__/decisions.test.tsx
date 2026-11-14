@@ -64,6 +64,8 @@ describe("DecisionHistoryPanel", () => {
     expect(screen.getByText(/Consolidated Rework Checklist/i)).toBeInTheDocument();
     expect(screen.getByText("Document unclear or blurry")).toBeInTheDocument();
     expect(screen.getByText("दस्तावेज़ धुंधला या अस्पष्ट है")).toBeInTheDocument();
+    expect(screen.getByText(/WhatsApp Candidate/i)).toBeInTheDocument();
+    expect(screen.getByText(/Copy SMS/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Fix & resubmit in-place \(Correction\)/i })).toHaveAttribute(
       "href",
       "/app/onboarding/app-1?step=5",

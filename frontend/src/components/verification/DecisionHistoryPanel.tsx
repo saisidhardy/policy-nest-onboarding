@@ -1,12 +1,17 @@
 "use client";
 
 import {
+  AlertOctagon,
   AlertTriangle,
   ArrowRight,
+  Check,
   CheckCircle2,
+  Copy,
   Gavel,
+  MessageSquare,
   RefreshCw,
   Scale,
+  Send,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
@@ -104,6 +109,10 @@ export function DecisionHistoryPanel({
   const [appealNotes, setAppealNotes] = useState("");
   const [reapplyReason, setReapplyReason] = useState("");
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+
+  // Notification sharing state
+  const [copiedSms, setCopiedSms] = useState(false);
+  const [notifNotice, setNotifNotice] = useState<string | null>(null);
 
   if (!summary) {
     return (
@@ -244,6 +253,48 @@ export function DecisionHistoryPanel({
     }
   }
 
+  function handleShareWhatsApp() {
+    if (!summary || !latest || latest.rework_items.length === 0) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://policynest-frontend-production.up.railway.app";
+    const fixUrl = `${origin}/app/onboarding/${summary.application_id}?step=5`;
+    const message = [
+      `📋 *PolicyNest POSP Onboarding Correction Request*`,
+      `Application Ref: *${summary.application_id.slice(0, 8).toUpperCase()}*`,
+      ``,
+      `Dear Candidate,`,
+      `To complete your POSP appointment, please update the following document(s):`,
+      ``,
+      ...latest.rework_items.map(
+        (it, idx) =>
+          `${idx + 1}. *${it.title_en}* (${it.title_hi})\n   👉 Action: ${it.action_en}\n   👉 कार्य: ${it.action_hi}`
+      ),
+      ``,
+      `🔗 *Upload replacement directly:*`,
+      fixUrl,
+      ``,
+      `⏱️ _Please complete your upload within 24 hours._`,
+    ].join("\n");
+
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+    setNotifNotice("Bilingual WhatsApp notification opened in WhatsApp.");
+    setTimeout(() => setNotifNotice(null), 4000);
+  }
+
+  function handleCopySms() {
+    if (!summary) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://policynest-frontend-production.up.railway.app";
+    const fixUrl = `${origin}/app/onboarding/${summary.application_id}?step=5`;
+    const sms = `PolicyNest Alert: Action required for your POSP onboarding. Please update your document(s) at ${fixUrl} to proceed with verification.`;
+    void navigator.clipboard.writeText(sms);
+    setCopiedSms(true);
+    setNotifNotice("Compact 160-char SMS text copied to clipboard.");
+    setTimeout(() => {
+      setCopiedSms(false);
+      setNotifNotice(null);
+    }, 3000);
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -295,21 +346,60 @@ export function DecisionHistoryPanel({
                 </Alert>
               )}
 
+              {latest.risk_indicators.some((rk) => rk.code.startsWith("ANOMALY_") || rk.code === "REPEATED_REWORK_ESCALATION") && (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-red-900">
+                        Cross-Application Fraud Ring &amp; Identity Guardrail Triggered
+                      </h4>
+                      <p className="text-xs text-red-800">
+                        Deterministic intelligence detected cross-application identity or document collisions
+                        (reused document hashes, shared bank accounts, or repeated rework cycles).
+                        Auto-approval is quarantined and this file is routed exclusively to Senior Compliance &amp; Fraud Desk review.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {notifNotice && <Alert tone="success">{notifNotice}</Alert>}
+
               {latest.rework_items.length > 0 && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-950">
                       <AlertTriangle className="h-4 w-4 text-amber-700" />
                       Consolidated Rework Checklist ({latest.rework_items.length})
                     </h3>
-                    {isApplicantOwner && summary.application_status === "NEEDS_MORE_INFO" && (
-                      <Link
-                        href={`/app/onboarding/${summary.application_id}?step=5`}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white hover:bg-amber-800"
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleShareWhatsApp}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                        title="Share bilingual rework checklist directly via WhatsApp"
                       >
-                        Fix &amp; resubmit in-place (Correction) <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    )}
+                        <MessageSquare className="h-3.5 w-3.5" /> 📱 WhatsApp Candidate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopySms}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        title="Copy compact 160-char SMS text to clipboard"
+                      >
+                        {copiedSms ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedSms ? "Copied!" : "Copy SMS"}
+                      </button>
+                      {isApplicantOwner && summary.application_status === "NEEDS_MORE_INFO" && (
+                        <Link
+                          href={`/app/onboarding/${summary.application_id}?step=5`}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white hover:bg-amber-800"
+                        >
+                          Fix &amp; resubmit in-place (Correction) <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {latest.rework_items.map((item, idx) => (
