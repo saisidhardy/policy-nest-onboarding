@@ -59,6 +59,9 @@ export function RegisterForm() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <div className="rounded-md border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600">
+          <span className="font-semibold text-slate-800">Candidate Onboarding Only:</span> This registration form is strictly for POSP applicants. Verification Officers, Operations Executives, and Supervisors are provisioned directly by the Platform Tech Team.
+        </div>
         {error && <Alert tone="error">{error}</Alert>}
         {config && !config.email_delivery_configured && (
           <Alert tone="warning" title="Email delivery is not configured">

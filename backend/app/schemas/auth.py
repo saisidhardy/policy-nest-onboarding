@@ -56,6 +56,25 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class OtpSendRequest(BaseModel):
+    identifier: str = Field(min_length=3, max_length=320, description="Email address or 10-digit Indian mobile number")
+    channel: Literal["AUTO", "EMAIL", "SMS"] = "AUTO"
+
+
+class OtpSendResult(BaseModel):
+    success: bool = True
+    delivery_channel: str
+    destination_masked: str
+    message: str
+    cooldown_seconds: int = 60
+    debug_code: str | None = None
+
+
+class OtpVerifyRequest(BaseModel):
+    identifier: str = Field(min_length=3, max_length=320)
+    code: str = Field(min_length=4, max_length=8)
+
+
 class TokenRequest(BaseModel):
     token: str = Field(min_length=10, max_length=200)
 

@@ -125,12 +125,18 @@ DEMO_ACCOUNTS = [
     {
         "email": "reviewer@policynest.demo",
         "name": "Neha Verma (Review Officer)",
-        "role_code": "SUPERVISOR",
+        "role_code": "SENIOR_REVIEWER",
+        "region": "ALL",
+    },
+    {
+        "email": "executive@policynest.demo",
+        "name": "Kiran Rao (Escalations Executive)",
+        "role_code": "SENIOR_REVIEWER",
         "region": "ALL",
     },
     {
         "email": "admin@policynest.demo",
-        "name": "Arun Kapoor (Ops Lead)",
+        "name": "Arun Kapoor (Tech Team Lead)",
         "role_code": "ADMIN",
         "region": "ALL",
     },
@@ -165,7 +171,27 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
         session.commit()
 
     # 2. Upsert / Fetch Demo Users
+    from app.models.user import Permission, role_permissions
+    from app.rbac.catalog import ROLE_PERMISSIONS
+
     roles_by_code = {r.code: r for r in session.scalars(select(Role)).all()}
+    perms_by_code = {p.code: p for p in session.scalars(select(Permission)).all()}
+
+    # Ensure canonical role permissions are linked
+    for role_code_enum, perm_codes in ROLE_PERMISSIONS.items():
+        role = roles_by_code.get(role_code_enum.value)
+        if role:
+            current_perm_ids = set(
+                session.scalars(
+                    select(role_permissions.c.permission_id).where(role_permissions.c.role_id == role.id)
+                ).all()
+            )
+            for p_code in perm_codes:
+                p_obj = perms_by_code.get(p_code)
+                if p_obj and p_obj.id not in current_perm_ids:
+                    session.execute(role_permissions.insert().values(role_id=role.id, permission_id=p_obj.id))
+            session.flush()
+
     pwd_hash = hash_password(DEMO_PASSWORD)
     for acc in DEMO_ACCOUNTS:
         role_obj = roles_by_code.get(acc["role_code"])
@@ -188,11 +214,16 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
                 password_hash=pwd_hash,
                 role_id=role_obj.id,
                 region=acc["region"],
-                clearance_level=3 if acc["role_code"] in ("ADMIN", "SUPERVISOR") else 1,
+                clearance_level=3 if acc["role_code"] in ("ADMIN", "SENIOR_REVIEWER", "SUPERVISOR") else 1,
                 is_active=True,
                 email_verified_at=now,
             )
             session.add(u)
+            session.flush()
+        else:
+            u.role_id = role_obj.id
+            u.clearance_level = 3 if acc["role_code"] in ("ADMIN", "SENIOR_REVIEWER", "SUPERVISOR") else 1
+            u.is_active = True
             session.flush()
         created_users[acc["email"]] = u
 

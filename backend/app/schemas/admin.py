@@ -14,6 +14,7 @@ class AdminUserOut(UserOut):
     locked_until: datetime | None
     failed_login_count: int
     invitation_pending: bool
+    generated_secret: str | None = None
 
 
 class CreateUserRequest(BaseModel):
@@ -22,6 +23,8 @@ class CreateUserRequest(BaseModel):
     role: RoleCode
     region: RegionLiteral | None = None
     clearance_level: int = Field(default=1, ge=1, le=3)
+    initial_password: str | None = Field(default=None, max_length=256)
+    auto_generate_password: bool = True
 
     _name = field_validator("full_name")(normalize_name)
 

@@ -8,6 +8,7 @@ from app.api.deps import DB, AuthContext, enforce_policy, require_permission
 from app.api.routes.health import database_status
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.security import hash_password
 from app.models import AuditLog, EmailDelivery, Permission, Role, User, UserSession
 from app.models.base import utcnow
 from app.rbac.catalog import RoleCode
@@ -104,6 +105,18 @@ def create_user(
     email = body.email.lower()
     if db.scalar(select(User).where(User.email == email)):
         raise AppError(409, "EMAIL_ALREADY_REGISTERED", "A user with this email already exists.")
+
+    generated_secret: str | None = None
+    if body.initial_password:
+        generated_secret = body.initial_password
+    elif body.auto_generate_password and body.role != RoleCode.APPLICANT:
+        import secrets
+        import string
+
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        generated_secret = "".join(secrets.choice(alphabet) for _ in range(16))
+
+    now = utcnow()
     user = User(
         id=uuid.uuid4(),
         email=email,
@@ -111,16 +124,25 @@ def create_user(
         role=_role(db, body.role),
         region=body.region,
         clearance_level=body.clearance_level,
-        password_hash=None,
+        password_hash=hash_password(generated_secret) if generated_secret else None,
+        password_changed_at=now if generated_secret else None,
+        email_verified_at=now if generated_secret else None,
     )
     db.add(user)
     db.flush()
-    token = issue_action_token(db, user, PURPOSE_INVITE, timedelta(hours=get_settings().invite_ttl_hours))
-    delivery = queue_email(db, background, user, "invite", token)
+
+    if generated_secret:
+        delivery = queue_email(db, background, user, "staff_credentials", generated_secret)
+        action_name = "admin.staff_provisioned"
+    else:
+        token = issue_action_token(db, user, PURPOSE_INVITE, timedelta(hours=get_settings().invite_ttl_hours))
+        delivery = queue_email(db, background, user, "invite", token)
+        action_name = "admin.user_invited"
+
     audit.add(
         db,
         request,
-        "admin.user_invited",
+        action_name,
         actor=auth.user,
         resource_type="user",
         resource_id=str(user.id),
@@ -130,9 +152,12 @@ def create_user(
             "region": body.region,
             "clearance_level": body.clearance_level,
             "email_delivery": delivery,
+            "has_secret": bool(generated_secret),
         },
     )
-    return AdminUserOut.model_validate(user)
+    out = AdminUserOut.model_validate(user)
+    out.generated_secret = generated_secret
+    return out
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)

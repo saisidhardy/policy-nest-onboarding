@@ -14,6 +14,7 @@ from app.models.base import utcnow
 PURPOSE_EMAIL_VERIFY = "EMAIL_VERIFY"
 PURPOSE_PASSWORD_RESET = "PASSWORD_RESET"
 PURPOSE_INVITE = "INVITE"
+PURPOSE_OTP_LOGIN = "OTP_LOGIN"
 
 
 def create_session(db: Session, user: User, request: Request) -> tuple[str, UserSession]:
@@ -108,6 +109,47 @@ def issue_action_token(db: Session, user: User, purpose: str, ttl: timedelta) ->
     raw = generate_token()
     db.add(UserActionToken(user_id=user.id, purpose=purpose, token_hash=hash_token(raw), expires_at=utcnow() + ttl))
     return raw
+
+
+def issue_otp_token(db: Session, user: User, ttl_minutes: int = 10) -> str:
+    import secrets
+
+    db.execute(
+        update(UserActionToken)
+        .where(
+            UserActionToken.user_id == user.id,
+            UserActionToken.purpose == PURPOSE_OTP_LOGIN,
+            UserActionToken.used_at.is_(None),
+        )
+        .values(used_at=utcnow())
+    )
+    otp = f"{secrets.randbelow(900000) + 100000}"
+    db.add(
+        UserActionToken(
+            user_id=user.id,
+            purpose=PURPOSE_OTP_LOGIN,
+            token_hash=hash_token(f"{user.id}:{otp}"),
+            expires_at=utcnow() + timedelta(minutes=ttl_minutes),
+        )
+    )
+    return otp
+
+
+def verify_otp_token(db: Session, user: User, otp: str) -> bool:
+    token_hash = hash_token(f"{user.id}:{otp.strip()}")
+    token = db.scalar(
+        select(UserActionToken).where(
+            UserActionToken.user_id == user.id,
+            UserActionToken.purpose == PURPOSE_OTP_LOGIN,
+            UserActionToken.token_hash == token_hash,
+            UserActionToken.used_at.is_(None),
+            UserActionToken.expires_at > utcnow(),
+        )
+    )
+    if token is None:
+        return False
+    token.used_at = utcnow()
+    return True
 
 
 def latest_action_token(db: Session, user: User, purpose: str) -> UserActionToken | None:

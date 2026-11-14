@@ -169,6 +169,38 @@ def build_email(template: str, user: User, token: str, db: Session | None = None
             url,
             f"This invitation expires in {s.invite_ttl_hours} hours.",
         )
+    elif template == "otp_login":
+        subject = f"Your PolicyNest Verification Code: {token}"
+        intro = f"Hi {user.full_name or 'there'}, use the following one-time verification code to sign in to PolicyNest:"
+        footer = "This verification code will expire in 10 minutes. If you did not request this code, you can safely ignore this email."
+        text = f"{subject}\n\n{intro}\n\nCODE: {token}\n\n{footer}\n\n— PolicyNest POSP Platform"
+        html = f"""<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;background:#f6f7fb;padding:24px">
+<table role="presentation" style="max-width:520px;margin:auto;background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">
+<tr><td><p style="font-weight:700;color:#1e3a8a;font-size:18px;margin:0 0 16px">PolicyNest</p>
+<h1 style="font-size:20px;color:#0f172a;margin:0 0 12px">Your Verification Code</h1>
+<p style="color:#334155;line-height:1.6">{escape(intro)}</p>
+<div style="margin:24px 0;background:#f1f5f9;border-radius:8px;padding:16px;text-align:center">
+  <span style="font-size:32px;font-weight:700;letter-spacing:6px;color:#1e3a8a;font-family:monospace">{escape(token)}</span>
+</div>
+<p style="color:#64748b;font-size:13px;line-height:1.5">{escape(footer)}</p></td></tr></table></body></html>"""
+    elif template == "staff_credentials":
+        subject = "Your PolicyNest Staff Account Credentials"
+        url = f"{base}/login"
+        role_label = getattr(user.role, "name", "Staff") if user.role else "Staff"
+        intro = f"Hi {user.full_name}, an official staff account ({role_label}) has been provisioned for you by the Platform Tech Team."
+        text = f"{subject}\n\n{intro}\n\nLogin Email: {user.email}\nTemporary Secret: {token}\nPortal URL: {url}\n\nPlease sign in and change your password.\n\n— PolicyNest Platform"
+        html = f"""<!doctype html><html><body style="font-family:Inter,Arial,sans-serif;background:#f6f7fb;padding:24px">
+<table role="presentation" style="max-width:520px;margin:auto;background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">
+<tr><td><p style="font-weight:700;color:#1e3a8a;font-size:18px;margin:0 0 16px">PolicyNest Operations</p>
+<h1 style="font-size:20px;color:#0f172a;margin:0 0 12px">Staff Access Provisioned</h1>
+<p style="color:#334155;line-height:1.6">{escape(intro)}</p>
+<div style="margin:20px 0;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;font-family:monospace;font-size:14px">
+  <p style="margin:0 0 8px"><strong>Role:</strong> {escape(role_label)}</p>
+  <p style="margin:0 0 8px"><strong>Email:</strong> {escape(user.email)}</p>
+  <p style="margin:0"><strong>Temporary Secret:</strong> <span style="background:#e2e8f0;padding:2px 6px;border-radius:4px;font-weight:bold">{escape(token)}</span></p>
+</div>
+<p style="margin:24px 0"><a href="{escape(url)}" style="background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Access Staff Portal</a></p>
+<p style="color:#64748b;font-size:13px;line-height:1.5">This secret is confidential. Do not share it with unauthorized personnel.</p></td></tr></table></body></html>"""
     else:
         raise ValueError(f"Unknown email template {template}")
     return OutgoingEmail(to=user.email, subject=subject, text=text, html=html)

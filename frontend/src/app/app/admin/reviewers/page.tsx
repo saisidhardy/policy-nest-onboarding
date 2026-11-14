@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeft, Sliders, UserCheck } from "lucide-react";
+import { ArrowRightLeft, Check, Copy, KeyRound, ShieldAlert, Sliders, UserCheck, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import {
@@ -50,6 +50,26 @@ function ReviewersView() {
   const [reassignReason, setReassignReason] = useState("");
   const [reassignSaving, setReassignSaving] = useState(false);
   const [reassignError, setReassignError] = useState<string | null>(null);
+
+  const [provisionOpen, setProvisionOpen] = useState(false);
+  const [provisionForm, setProvisionForm] = useState({
+    full_name: "",
+    email: "",
+    role: "REVIEWER" as "REVIEWER" | "SENIOR_REVIEWER" | "ADMIN",
+    region: "ALL",
+    clearance_level: 1,
+    initial_password: "",
+    auto_generate_password: true,
+  });
+  const [provisionSaving, setProvisionSaving] = useState(false);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const [provisionResult, setProvisionResult] = useState<{
+    full_name: string;
+    email: string;
+    role: string;
+    generated_secret?: string | null;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,6 +162,45 @@ function ReviewersView() {
     }
   }
 
+  async function submitProvision(e: React.FormEvent) {
+    e.preventDefault();
+    setProvisionSaving(true);
+    setProvisionError(null);
+    try {
+      const res = await api<{
+        id: string;
+        email: string;
+        full_name: string;
+        role: { code: string; name: string };
+        generated_secret?: string | null;
+      }>("/admin/users", {
+        method: "POST",
+        body: {
+          full_name: provisionForm.full_name.trim(),
+          email: provisionForm.email.trim(),
+          role: provisionForm.role,
+          region: provisionForm.region || null,
+          clearance_level: Number(provisionForm.clearance_level),
+          initial_password: provisionForm.auto_generate_password ? undefined : (provisionForm.initial_password || undefined),
+          auto_generate_password: provisionForm.auto_generate_password,
+        },
+      });
+      setProvisionResult({
+        full_name: res.full_name,
+        email: res.email,
+        role: res.role.name,
+        generated_secret: res.generated_secret,
+      });
+      setProvisionOpen(false);
+      setNotice(`Staff account provisioned for ${res.full_name} (${res.role.name}).`);
+      await load();
+    } catch (err) {
+      setProvisionError(err instanceof ApiError ? err.message : "Failed to provision staff account.");
+    } finally {
+      setProvisionSaving(false);
+    }
+  }
+
   const totalActive = reviewers.reduce((sum, r) => sum + r.active_assigned_count, 0);
   const totalEscalated = reviewers.reduce((sum, r) => sum + r.escalated_assigned_count, 0);
   const activeReviewers = reviewers.filter((r) => r.is_active);
@@ -149,8 +208,14 @@ function ReviewersView() {
   return (
     <>
       <PageHeader
-        title="Reviewer management"
-        description="Monitor reviewer capacity, adjust regional and clearance scopes, and bulk-reassign active workloads."
+        title="Reviewer & Staff Operations"
+        description="Monitor reviewer capacity, provision confidential staff credentials, and manage regional workloads."
+        action={
+          <Button onClick={() => setProvisionOpen(true)}>
+            <UserPlus className="mr-1.5 h-4 w-4" />
+            Provision Staff Account
+          </Button>
+        }
       />
 
       {notice && (
@@ -377,6 +442,200 @@ function ReviewersView() {
           </div>
         </form>
       </Dialog>
+
+      {/* Provision Staff Account Dialog */}
+      <Dialog
+        open={provisionOpen}
+        onClose={() => setProvisionOpen(false)}
+        title="Provision Confidential Staff Account"
+        description="Create an internal Reviewer, Senior Reviewer / Executive, or Tech Admin account with confidential login credentials."
+      >
+        <form className="space-y-4" onSubmit={submitProvision} noValidate>
+          {provisionError && <Alert tone="error">{provisionError}</Alert>}
+
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            <div className="flex items-center gap-1.5 font-medium text-slate-800">
+              <ShieldAlert className="h-3.5 w-3.5 text-brand-600" />
+              <span>Restricted Staff Onboarding</span>
+            </div>
+            <p className="mt-1">
+              Reviewers and Executives cannot self-register. Only the Tech Team can provision these roles.
+            </p>
+          </div>
+
+          <Field label="Full Name" htmlFor="staff-name">
+            <Input
+              id="staff-name"
+              required
+              value={provisionForm.full_name}
+              onChange={(e) => setProvisionForm({ ...provisionForm, full_name: e.target.value })}
+              placeholder="e.g. Neha Verma"
+            />
+          </Field>
+
+          <Field label="Work Email" htmlFor="staff-email">
+            <Input
+              id="staff-email"
+              type="email"
+              required
+              value={provisionForm.email}
+              onChange={(e) => setProvisionForm({ ...provisionForm, email: e.target.value })}
+              placeholder="e.g. reviewer.ops@policynest.com"
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Staff Role" htmlFor="staff-role">
+              <Select
+                id="staff-role"
+                value={provisionForm.role}
+                onChange={(e) =>
+                  setProvisionForm({
+                    ...provisionForm,
+                    role: e.target.value as "REVIEWER" | "SENIOR_REVIEWER" | "ADMIN",
+                    clearance_level: e.target.value === "REVIEWER" ? 1 : 3,
+                  })
+                }
+              >
+                <option value="REVIEWER">Reviewer (Verification Officer)</option>
+                <option value="SENIOR_REVIEWER">Senior Reviewer (Operations Executive)</option>
+                <option value="ADMIN">Platform Administrator (Tech Team)</option>
+              </Select>
+            </Field>
+
+            <Field label="Assigned Region" htmlFor="staff-region">
+              <Select
+                id="staff-region"
+                value={provisionForm.region}
+                onChange={(e) => setProvisionForm({ ...provisionForm, region: e.target.value })}
+              >
+                <option value="ALL">All Regions (National)</option>
+                {regions.map((rg) => (
+                  <option key={rg} value={rg}>
+                    {rg}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Clearance Level" htmlFor="staff-clearance" hint="Level 1: standard; Level 3: senior escalations & fraud referrals">
+            <Select
+              id="staff-clearance"
+              value={String(provisionForm.clearance_level)}
+              onChange={(e) => setProvisionForm({ ...provisionForm, clearance_level: Number(e.target.value) })}
+            >
+              <option value="1">Level 1 - Verification Officer</option>
+              <option value="2">Level 2 - Supervisor</option>
+              <option value="3">Level 3 - Senior Executive & Fraud Clearance</option>
+            </Select>
+          </Field>
+
+          <div className="rounded-md border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={provisionForm.auto_generate_password}
+                onChange={(e) => setProvisionForm({ ...provisionForm, auto_generate_password: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="font-medium">Auto-generate secure 16-character temporary secret</span>
+            </label>
+
+            {!provisionForm.auto_generate_password && (
+              <div className="mt-3">
+                <Field label="Custom Initial Password" htmlFor="staff-custom-pwd">
+                  <Input
+                    id="staff-custom-pwd"
+                    type="password"
+                    value={provisionForm.initial_password}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, initial_password: e.target.value })}
+                    placeholder="Enter confidential password"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setProvisionOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              loading={provisionSaving}
+              disabled={!provisionForm.full_name || !provisionForm.email}
+            >
+              Create Staff Login
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Secret Credentials Modal */}
+      {provisionResult && (
+        <Dialog
+          open={!!provisionResult}
+          onClose={() => {
+            setProvisionResult(null);
+            setCopied(false);
+          }}
+          title="Confidential Staff Credentials Generated"
+          description="Securely share these credentials with the designated officer. They can sign in immediately."
+        >
+          <div className="space-y-4">
+            <div className="rounded-md border border-brand-200 bg-brand-50/50 p-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex justify-between border-b border-brand-100 pb-2">
+                  <span className="text-slate-600">Officer Name:</span>
+                  <span className="font-semibold text-slate-900">{provisionResult.full_name}</span>
+                </div>
+                <div className="flex justify-between border-b border-brand-100 pb-2">
+                  <span className="text-slate-600">Assigned Role:</span>
+                  <span className="font-semibold text-brand-700">{provisionResult.role}</span>
+                </div>
+                <div className="flex justify-between border-b border-brand-100 pb-2">
+                  <span className="text-slate-600">Login Email:</span>
+                  <span className="font-mono text-slate-900">{provisionResult.email}</span>
+                </div>
+                {provisionResult.generated_secret && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-slate-600">Confidential Secret:</span>
+                    <code className="rounded bg-white px-2.5 py-1 font-mono text-sm font-bold text-brand-900 shadow-sm border border-brand-200">
+                      {provisionResult.generated_secret}
+                    </code>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  const text = `PolicyNest Staff Account\nRole: ${provisionResult.role}\nEmail: ${provisionResult.email}\nSecret Password: ${provisionResult.generated_secret ?? "Pending Invite Link"}\nLogin Portal: /login`;
+                  void navigator.clipboard.writeText(text);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 3000);
+                }}
+              >
+                {copied ? <Check className="mr-1.5 h-4 w-4 text-emerald-600" /> : <Copy className="mr-1.5 h-4 w-4" />}
+                {copied ? "Copied to Clipboard" : "Copy Credentials"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setProvisionResult(null);
+                  setCopied(false);
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </>
   );
 }

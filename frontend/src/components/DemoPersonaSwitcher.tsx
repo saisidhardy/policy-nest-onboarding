@@ -87,11 +87,19 @@ const DEMO_PERSONAS: DemoPersona[] = [
     category: "ops",
   },
   {
-    label: "Compliance Admin",
+    label: "Ops Executive",
+    role: "Operations",
+    email: "executive@policynest.demo",
+    route: "/app/review?tab=escalated",
+    description: "Senior escalations & fraud clearance",
+    category: "ops",
+  },
+  {
+    label: "Tech Team Admin",
     role: "Admin",
     email: "admin@policynest.demo",
-    route: "/app/admin/audit",
-    description: "System config & regulatory CSV export",
+    route: "/app/admin/reviewers",
+    description: "Staff provisioning & system config",
     category: "admin",
   },
 ];

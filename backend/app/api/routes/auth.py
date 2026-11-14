@@ -25,28 +25,35 @@ from app.schemas.auth import (
     EmailRequest,
     LoginRequest,
     MeOut,
+    OtpSendRequest,
+    OtpSendResult,
+    OtpVerifyRequest,
     RegisterRequest,
     ResetPasswordRequest,
     SessionOut,
     TokenRequest,
     UserOut,
+    normalize_mobile,
 )
 from app.schemas.common import Message
 from app.services import audit
 from app.services.auth import (
     PURPOSE_EMAIL_VERIFY,
     PURPOSE_INVITE,
+    PURPOSE_OTP_LOGIN,
     PURPOSE_PASSWORD_RESET,
     clear_auth_cookies,
     consume_action_token,
     create_session,
     invalidate_action_tokens,
     issue_action_token,
+    issue_otp_token,
     latest_action_token,
     live_session_filter,
     peek_action_token,
     revoke_all_sessions,
     set_auth_cookies,
+    verify_otp_token,
 )
 from app.services.email import get_provider, queue_email
 
@@ -172,6 +179,125 @@ def login(body: LoginRequest, request: Request, response: Response, db: DB):
         user.password_hash = hash_password(body.password)
     raw, session = create_session(db, user, request)
     audit.add(db, request, "auth.login", actor=user, details={"session_id": str(session.id)})
+    set_auth_cookies(response, raw, session)
+    return _auth_result(user)
+
+
+def _normalize_identifier(identifier: str) -> tuple[str, str]:
+    raw = identifier.strip()
+    if "@" in raw:
+        return raw.lower(), "EMAIL"
+    clean_mobile = normalize_mobile(raw)
+    if clean_mobile:
+        return clean_mobile, "MOBILE"
+    raise AppError(422, "INVALID_IDENTIFIER", "Enter a valid email address or 10-digit Indian mobile number.")
+
+
+def _mask_destination(val: str, kind: str) -> str:
+    if kind == "EMAIL":
+        parts = val.split("@")
+        name = parts[0]
+        domain = parts[1] if len(parts) > 1 else ""
+        masked_name = name[0] + "***" + (name[-1] if len(name) > 1 else "")
+        return f"{masked_name}@{domain}"
+    return f"+91 {val[:2]}***{val[-2:]}" if len(val) >= 4 else "+91 **********"
+
+
+@router.post("/otp/send", response_model=OtpSendResult)
+def send_otp(body: OtpSendRequest, db: DB, background: BackgroundTasks):
+    val, kind = _normalize_identifier(body.identifier)
+    user = None
+    if kind == "EMAIL":
+        user = _user_by_email(db, val)
+    else:
+        user = db.scalar(select(User).where(User.mobile == val))
+
+    # Auto-provision APPLICANT candidate if account does not exist
+    if user is None:
+        applicant_role = db.scalar(select(Role).where(Role.code == RoleCode.APPLICANT.value))
+        assert applicant_role is not None, "Roles not seeded"
+        now = utcnow()
+        user_email = val if kind == "EMAIL" else f"posp_{val}@policynest.auto"
+        user_mobile = val if kind == "MOBILE" else None
+        user = User(
+            id=uuid.uuid4(),
+            email=user_email,
+            mobile=user_mobile,
+            full_name="POSP Applicant",
+            role=applicant_role,
+            is_active=True,
+            password_hash=None,
+            password_changed_at=now,
+            last_login_at=now,
+        )
+        db.add(user)
+        db.flush()
+
+    if not user.is_active:
+        raise AppError(403, "ACCOUNT_DISABLED", "This account has been disabled. Contact support.")
+
+    # Check cooldown (60 seconds)
+    recent = latest_action_token(db, user, PURPOSE_OTP_LOGIN)
+    if recent and recent.created_at and (utcnow() - recent.created_at).total_seconds() < 60:
+        remain = 60 - int((utcnow() - recent.created_at).total_seconds())
+        raise AppError(429, "RATE_LIMITED", f"Please wait {remain} seconds before requesting a new code.")
+
+    otp = issue_otp_token(db, user, ttl_minutes=10)
+    debug_code: str | None = None
+
+    if kind == "EMAIL" or (user.email and not user.email.endswith(".auto")):
+        delivery = queue_email(db, background, user, "otp_login", otp)
+        if delivery == "NOT_CONFIGURED" or get_settings().app_env != "production":
+            debug_code = otp
+    else:
+        debug_code = otp
+
+    masked = _mask_destination(val, kind)
+    return OtpSendResult(
+        success=True,
+        delivery_channel=kind,
+        destination_masked=masked,
+        message=f"A 6-digit verification code has been dispatched to {masked}.",
+        cooldown_seconds=60,
+        debug_code=debug_code,
+    )
+
+
+@router.post("/otp/verify", response_model=AuthResult)
+def verify_otp(body: OtpVerifyRequest, request: Request, response: Response, db: DB):
+    val, kind = _normalize_identifier(body.identifier)
+    user = None
+    if kind == "EMAIL":
+        user = _user_by_email(db, val)
+    else:
+        user = db.scalar(select(User).where(User.mobile == val))
+
+    if user is None:
+        raise AppError(401, "INVALID_CREDENTIALS", "Account not found for this identifier. Request a code first.")
+
+    now = utcnow()
+    if user.locked_until and user.locked_until > now:
+        minutes = max(1, int((user.locked_until - now).total_seconds() // 60) + 1)
+        raise AppError(423, "ACCOUNT_LOCKED", f"Too many failed attempts. Try again in {minutes} minute(s).")
+
+    if not verify_otp_token(db, user, body.code):
+        user.failed_login_count += 1
+        s = get_settings()
+        if user.failed_login_count >= s.login_max_failures:
+            user.locked_until = now + timedelta(minutes=s.login_lockout_minutes)
+            user.failed_login_count = 0
+        audit.add(db, request, "auth.otp_verify", audit.FAILURE, actor=user, details={"reason": "invalid_code"})
+        db.commit()
+        raise AppError(401, "INVALID_CODE", "Invalid or expired verification code.")
+
+    user.failed_login_count = 0
+    user.locked_until = None
+    user.last_login_at = now
+    if not user.email_verified_at and kind == "EMAIL":
+        user.email_verified_at = now
+
+    raw, session = create_session(db, user, request)
+    audit.add(db, request, "auth.otp_login", actor=user, details={"session_id": str(session.id), "kind": kind})
     set_auth_cookies(response, raw, session)
     return _auth_result(user)
 
