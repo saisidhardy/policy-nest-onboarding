@@ -108,6 +108,23 @@ export function ThirtyMinuteOnboardingSession({
   // Vernacular voice guidance state
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState<"HI" | "EN">("HI");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const playVernacularAudio = (text: string, lang: "HI" | "EN") => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    if (isSpeaking) {
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === "HI" ? "hi-IN" : "en-IN";
+    utterance.rate = 0.95;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -616,7 +633,7 @@ export function ThirtyMinuteOnboardingSession({
 
           {/* Vernacular Voice Guidance Banner (Bhashini Rail) */}
           {voiceEnabled && (
-            <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 text-xs text-blue-200 flex items-start justify-between gap-3 animate-in fade-in">
+            <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 text-xs text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
               <div className="flex items-start gap-3">
                 <Volume2 className="h-4 w-4 text-blue-400 shrink-0 mt-0.5 animate-pulse" />
                 <div>
@@ -632,6 +649,37 @@ export function ThirtyMinuteOnboardingSession({
                     {VOICE_PROMPTS[activeDocSpec.type]?.[voiceLanguage === "HI" ? "hi" : "en"]}
                   </p>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    playVernacularAudio(
+                      VOICE_PROMPTS[activeDocSpec.type]?.[voiceLanguage === "HI" ? "hi" : "en"],
+                      voiceLanguage
+                    )
+                  }
+                  className="bg-blue-900/40 border-blue-700/50 text-blue-200 hover:bg-blue-800/60 text-xs gap-1.5"
+                >
+                  {isSpeaking ? (
+                    <>
+                      <span className="flex gap-0.5 items-end h-3">
+                        <span className="w-1 bg-blue-400 h-2 animate-bounce" />
+                        <span className="w-1 bg-blue-400 h-3 animate-bounce [animation-delay:0.1s]" />
+                        <span className="w-1 bg-blue-400 h-1.5 animate-bounce [animation-delay:0.2s]" />
+                      </span>
+                      <span>Stop Voice</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-3.5 w-3.5 text-blue-400" />
+                      <span>Play Voice Prompt</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { BarChart3, ClipboardList, History } from "lucide-react";
+import { BarChart3, ClipboardList, History, Network } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ export function ReviewPortalTabs() {
     { href: "/app/review", label: "Application Queue", icon: ClipboardList, show: can("application:review") },
     { href: "/app/review/history", label: "Review History", icon: History, show: can("application:review") },
     { href: "/app/review/analytics", label: "Operational Analytics", icon: BarChart3, show: can("analytics:read") },
+    { href: "/app/review/fraud-graph", label: "Fraud Ring Network", icon: Network, show: can("application:review") },
   ].filter((t) => t.show);
 
   return (

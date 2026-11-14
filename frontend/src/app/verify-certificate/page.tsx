@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Printer, Search, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Printer, Search, ShieldAlert, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -13,6 +13,26 @@ export default function VerifyCertificatePage() {
   const [result, setResult] = useState<CertificateVerification | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function loadDemoCertificate() {
+    const demoNumber = "POSP-2026-CERT-9081";
+    setNumber(demoNumber);
+    setError(null);
+    setResult({
+      certificate_number: demoNumber,
+      candidate_name: "Vajja Sai Siddhardha",
+      course_title: "IRDAI POSP Composite Certification (Life & General)",
+      course_code: "IRDAI-POSP-COMP-2026",
+      completed_hours: 15,
+      exam_score_pct: 94.5,
+      issued_at: new Date().toISOString(),
+      valid_until: new Date(Date.now() + 3 * 365 * 86400000).toISOString(),
+      status: "ACTIVE",
+      issuing_authority: "IRDAI Authorized Examination Body / PolicyNest Academy",
+      seal_sha256: "9b4f2c018a72e819df502847bbac01948271049281a94bc028194720184bba02",
+      verified: true,
+    });
+  }
 
   async function verify(value: string) {
     const normalized = value.trim().toUpperCase();
@@ -91,6 +111,16 @@ export default function VerifyCertificatePage() {
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Enter the unique certificate registration code printed on the candidate&apos;s completion certificate or scan the QR code. No sign-in required.
             </p>
+            <div className="flex items-center gap-2 pt-3">
+              <button
+                type="button"
+                onClick={loadDemoCertificate}
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-3 py-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 transition"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Load Verified Sample Certificate (POSP-2026-CERT-9081)</span>
+              </button>
+            </div>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
