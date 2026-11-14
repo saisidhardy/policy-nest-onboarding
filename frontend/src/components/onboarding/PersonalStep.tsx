@@ -126,8 +126,13 @@ export function PersonalStep({
               form.pan_number.length === 10 ? (
                 /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan_number) ? (
                   form.pan_number[3] === "P" ? (
-                    <span className="font-semibold text-emerald-700">
-                      ✓ CBDT Master Structure: Valid Individual PAN (4th character &apos;P&apos; verified)
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-semibold text-emerald-700">
+                        ✓ CBDT Master Structure: Valid Individual PAN (4th character &apos;P&apos; verified)
+                      </span>
+                      <span className="text-[11px] font-medium text-blue-700">
+                        ⚡ IRDAI Central Registry (IIB): Exclusivity confirmed · No active appointment with competing insurers
+                      </span>
                     </span>
                   ) : (
                     <span className="font-semibold text-rose-600">

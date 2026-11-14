@@ -31,6 +31,7 @@ import { Logo } from "./Logo";
 import { Badge } from "./ui";
 import { VerificationBanner } from "./VerificationBanner";
 import { LanguageToggle } from "./LanguageToggle";
+import { AiAssistantWidget } from "./AiAssistantWidget";
 import { useI18n } from "@/lib/i18n";
 
 export interface NavItem {
@@ -226,6 +227,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {!me.user.email_verified && <VerificationBanner />}
         {children}
       </main>
+      <AiAssistantWidget />
     </div>
   );
 }
