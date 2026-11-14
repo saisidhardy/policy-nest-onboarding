@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -121,7 +122,22 @@ class Settings(BaseSettings):
 
     @property
     def origins(self) -> list[str]:
-        return [o.strip().rstrip("/") for o in self.allowed_origins.split(",") if o.strip()]
+        raw = [o.strip().rstrip("/") for o in self.allowed_origins.split(",") if o.strip()]
+        if self.public_app_url:
+            raw.append(self.public_app_url.strip().rstrip("/"))
+        # Auto-allow known cloud deployment origins
+        raw.extend([
+            "https://policynest-frontend-production.up.railway.app",
+            "https://policynest-web.embarko.app",
+            "https://policynest-web-staging.embarko.app",
+        ])
+        railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+        if railway_domain:
+            raw.append(f"https://{railway_domain.strip().rstrip('/')}")
+        frontend_url = os.environ.get("RAILWAY_SERVICE_POLICYNEST_FRONTEND_URL")
+        if frontend_url:
+            raw.append(frontend_url.strip().rstrip("/"))
+        return list(dict.fromkeys(raw))
 
     @property
     def secure_cookies(self) -> bool:

@@ -49,9 +49,18 @@ def _check_origin(request: Request) -> None:
     origin = origin.rstrip("/")
     if origin in settings.origins:
         return
-    host = request.headers.get("x-forwarded-host") if settings.trust_proxy_headers else None
-    host = host or request.headers.get("host")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
     if host and urlparse(origin).netloc == host:
+        return
+    # Auto-allow trusted cloud platform deployments
+    origin_netloc = urlparse(origin).netloc.lower()
+    if (
+        origin_netloc.endswith(".railway.app")
+        or origin_netloc.endswith(".up.railway.app")
+        or origin_netloc.endswith(".embarko.app")
+        or origin_netloc.startswith("localhost")
+        or origin_netloc.startswith("127.0.0.1")
+    ):
         return
     raise AppError(403, "ORIGIN_REJECTED", "Request origin is not allowed.")
 
