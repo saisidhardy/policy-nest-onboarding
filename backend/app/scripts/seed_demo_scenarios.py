@@ -797,9 +797,6 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
         tr_active = TrainingRecord(
             application_id=app_tr.id,
-            user_id=user_tr.id,
-            course_code="IRDAI-POSP-15H",
-            course_title="15-Hour Mandatory POSP General & Life Insurance Certification",
             eligibility_status="ELIGIBLE",
             lms_provider="sandbox",
             is_simulated=True,
@@ -807,10 +804,18 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
             required_hours=Decimal("15.00"),
             completed_hours=Decimal("8.50"),
             progress_pct=Decimal("56.67"),
+            module_progress=[
+                {"module_id": "M1", "title": "Introduction to Insurance & POSP Scope", "hours": 3.0, "status": "COMPLETED"},
+                {"module_id": "M2", "title": "Motor & Health Insurance Essentials", "hours": 3.0, "status": "COMPLETED"},
+                {"module_id": "M3", "title": "Life & Term Underwriting Fundamentals", "hours": 2.5, "status": "COMPLETED"},
+                {"module_id": "M4", "title": "IRDAI Code of Conduct, Grievance Redressal & Anti-Fraud", "hours": 3.5, "status": "IN_PROGRESS"},
+                {"module_id": "M5", "title": "Statutory Documentation, KYC & Policy Servicing", "hours": 3.0, "status": "PENDING"},
+            ],
             enrolled_at=now - datetime.timedelta(days=1),
             started_at=now - datetime.timedelta(hours=14),
-            exam_status="NOT_ATTEMPTED",
-            certification_status="PENDING_EXAM",
+            exam_status="NOT_ELIGIBLE",
+            certification_status="NOT_CERTIFIED",
+            sync_status="SYNCED",
         )
         session.add(tr_active)
 
