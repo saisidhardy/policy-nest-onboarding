@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, RotateCcw, Search } from "lucide-react";
+import { RefreshCw, RotateCcw, ScrollText, Search } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -66,7 +66,37 @@ function ApplicantTrainingView() {
           </Link>
         </Alert>
       ) : (
-        <TrainingStatusPanel applicationId={app.id} onApplicationStatusChanged={loadApp} />
+        <>
+          {(app.status === "CERTIFIED" || app.status === "KYC_APPROVED") && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50/70 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-sm">
+                  ✓
+                </div>
+                <div>
+                  <p className="font-semibold text-emerald-950">
+                    {app.status === "CERTIFIED"
+                      ? "IRDAI POSP Appointment Certified"
+                      : "KYC Approved · Training In Progress"}
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    {app.status === "CERTIFIED"
+                      ? "Your statutory 15-hour training and examination are completed. You can view or print your official compliance dossier."
+                      : "Your onboarding verification is passed. Complete your 15-hour training curriculum below to finalize appointment."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
+              >
+                <ScrollText className="h-4 w-4 mr-1.5" /> View Official Dossier
+              </Button>
+            </div>
+          )}
+          <TrainingStatusPanel applicationId={app.id} onApplicationStatusChanged={loadApp} />
+        </>
       )}
     </div>
   );

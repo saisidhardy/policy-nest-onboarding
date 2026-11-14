@@ -97,7 +97,7 @@ function ApplicationDetailView() {
                 Resume step {app.current_step} <ArrowRight className="h-4 w-4" />
               </Link>
             )}
-            {app.status === "CERTIFIED" && (
+            {(app.status === "KYC_APPROVED" || app.status === "TRAINING_IN_PROGRESS" || app.status === "CERTIFIED") && (
               <Button
                 variant="secondary"
                 onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
