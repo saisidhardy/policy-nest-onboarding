@@ -61,11 +61,11 @@ export function RegisterForm() {
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <div className="rounded-md border border-brand-200 bg-brand-50/80 p-3 text-xs text-brand-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <span className="font-semibold">Fast Passwordless Onboarding:</span>
-            <p className="mt-0.5 text-slate-600">Register or sign in directly with a real SMS or Email OTP verification code.</p>
+            <span className="font-semibold">Instant Candidate Onboarding:</span>
+            <p className="mt-0.5 text-slate-600">Sign in or register directly with your Google account, Email code, or Username & Password.</p>
           </div>
           <Link href="/login" className="self-start sm:self-auto shrink-0 rounded-md bg-brand-700 px-3 py-1.5 font-medium text-white hover:bg-brand-800 text-center">
-            OTP Sign In
+            Candidate Sign In
           </Link>
         </div>
 

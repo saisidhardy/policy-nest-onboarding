@@ -347,11 +347,14 @@ def clerk_exchange(body: ClerkExchangeRequest, request: Request, response: Respo
 
     first_name = data.get("first_name") or ""
     last_name = data.get("last_name") or ""
-    full_name = f"{first_name} {last_name}".strip() or "POSP Applicant"
+    username = data.get("username")
+    full_name = f"{first_name} {last_name}".strip() or username or "POSP Applicant"
 
     user = None
     if primary_email:
         user = _user_by_email(db, primary_email)
+    if user is None and username:
+        user = _user_by_email(db, f"{username.lower()}@policynest.local")
     if user is None and primary_mobile:
         user = db.scalar(select(User).where(User.mobile == primary_mobile))
 
@@ -359,7 +362,11 @@ def clerk_exchange(body: ClerkExchangeRequest, request: Request, response: Respo
     if user is None:
         applicant_role = db.scalar(select(Role).where(Role.code == RoleCode.APPLICANT.value))
         assert applicant_role is not None, "Roles not seeded"
-        user_email = primary_email or (f"posp_{primary_mobile}@policynest.auto" if primary_mobile else f"posp_{clerk_user_id[:8]}@policynest.auto")
+        user_email = (
+            primary_email
+            or (f"{username.lower()}@policynest.local" if username else None)
+            or (f"posp_{primary_mobile}@policynest.auto" if primary_mobile else f"posp_{clerk_user_id[:8]}@policynest.auto")
+        )
         user = User(
             id=uuid.uuid4(),
             email=user_email,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignIn } from "@clerk/nextjs";
-import { KeyRound, ShieldCheck, Smartphone } from "lucide-react";
+import { KeyRound, ShieldCheck, UserCheck } from "lucide-react";
 import { AuthShell } from "@/components/AuthShell";
 import { PasswordField } from "@/components/PasswordField";
 import { Alert, Button, Field, Input } from "@/components/ui";
@@ -69,8 +69,8 @@ export function LoginForm() {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Smartphone className="h-4 w-4" />
-          <span>Candidate (OTP)</span>
+          <UserCheck className="h-4 w-4" />
+          <span>Candidate Sign In</span>
         </button>
         <button
           type="button"
@@ -144,11 +144,11 @@ export function LoginForm() {
         <div className="space-y-4">
           <div className="rounded-md border border-brand-200 bg-brand-50/70 p-3 text-xs text-brand-900">
             <div className="flex items-center gap-1.5 font-medium">
-              <Smartphone className="h-3.5 w-3.5 text-brand-600" />
-              <span>Real Candidate Verification Code</span>
+              <UserCheck className="h-3.5 w-3.5 text-brand-600" />
+              <span>Candidate Authentication</span>
             </div>
             <p className="mt-1">
-              Sign in with your registered Indian mobile number (+91) or email address to receive your 6-digit one-time code.
+              Sign in with your Google account, Email verification code, or Username & Password.
             </p>
           </div>
 
