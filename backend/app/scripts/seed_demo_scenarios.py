@@ -41,6 +41,7 @@ from app.models.base import utcnow
 from app.models.rules import ApplicationAppeal, ApplicationDecision, RuleExecution
 from app.models.training import TrainingRecord
 from app.models.user import Role, User
+from app.services.rules_engine import ensure_default_ruleset
 
 
 @compiles(JSONB, "sqlite")
@@ -196,6 +197,7 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
         created_users[acc["email"]] = u
 
     reviewer_user = created_users["reviewer@policynest.demo"]
+    active_ruleset = ensure_default_ruleset(session)
     scenarios: list[dict] = []
 
     # 3. Create Demo Scenarios
@@ -244,10 +246,23 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
         exec_stp = RuleExecution(
             application_id=app_stp.id,
-            ruleset_version=1,
-            outcome="PASS",
+            ruleset_id=active_ruleset.id,
+            ruleset_version=active_ruleset.version,
+            trigger_source="APPLICATION_SUBMIT",
+            outcome="AUTO_APPROVE",
+            recommended_status="APPROVED",
+            eligibility_status="PASS",
+            completeness_status="PASS",
+            consistency_status="PASS",
+            risk_level="LOW",
+            auto_pass_eligible=True,
+            requires_human_review=False,
+            reason_codes=["ALL_CRITERIA_MET", "ZERO_MISMATCH", "PAN_BANK_VERIFIED"],
+            rule_results=[],
+            rework_items=[],
+            risk_indicators=[],
+            summary="Application cleared all deterministic policy checks with 0 mismatch and high OCR confidence.",
             executed_at=now - datetime.timedelta(hours=2),
-            reasons_evaluated=["ALL_CRITERIA_MET", "0_MISMATCH", "PAN_BANK_VERIFIED"],
         )
         session.add(exec_stp)
 
@@ -357,14 +372,17 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
         dec_rew = ApplicationDecision(
             application_id=app_rew.id,
             decided_by_user_id=reviewer_user.id,
+            decided_by_role="REVIEWER",
             decision="NEEDS_MORE_INFO",
             previous_status="IN_REVIEW",
             new_status="NEEDS_MORE_INFO",
+            is_override=False,
             reason_codes=["CLASS_10_MARKSHEET_BLURRED", "NAME_PARTIALLY_CROPPED"],
             reason_text=(
                 "Class 10 mark sheet lower border is cropped and passing year is blurred. "
                 "कृपया कक्षा 10 की अंकतालिका को स्पष्ट रूप से स्कैन करके पुनः अपलोड करें।"
             ),
+            rework_items=[],
             created_at=now - datetime.timedelta(hours=3),
         )
         session.add(dec_rew)
@@ -545,10 +563,23 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
         exec_reg = RuleExecution(
             application_id=app_reg.id,
-            ruleset_version=1,
-            outcome="PASS",
+            ruleset_id=active_ruleset.id,
+            ruleset_version=active_ruleset.version,
+            trigger_source="APPLICATION_SUBMIT",
+            outcome="AUTO_APPROVE",
+            recommended_status="APPROVED",
+            eligibility_status="PASS",
+            completeness_status="PASS",
+            consistency_status="PASS",
+            risk_level="LOW",
+            auto_pass_eligible=True,
+            requires_human_review=False,
+            reason_codes=["STATE_BOARD_VERIFIED", "VERNACULAR_LOCALIZATION_OK"],
+            rule_results=[],
+            rework_items=[],
+            risk_indicators=[],
+            summary="State secondary board credential validated and regional vernacular profile configured.",
             executed_at=now - datetime.timedelta(hours=4),
-            reasons_evaluated=["STATE_BOARD_VERIFIED", "VERNACULAR_LOCALIZATION_OK"],
         )
         session.add(exec_reg)
 
@@ -609,11 +640,14 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
         dec_apl = ApplicationDecision(
             application_id=app_apl.id,
             decided_by_user_id=reviewer_user.id,
+            decided_by_role="REVIEWER",
             decision="REJECTED",
             previous_status="IN_REVIEW",
             new_status="REJECTED",
+            is_override=False,
             reason_codes=["NAME_MISMATCH_PAN_VS_BANK"],
             reason_text="PAN holder name 'Kavita Sharma' differs from bank account holder 'Kavita Verma'.",
+            rework_items=[],
             created_at=now - datetime.timedelta(hours=18),
         )
         session.add(dec_apl)
@@ -684,13 +718,26 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
         exec_bnk = RuleExecution(
             application_id=app_bnk.id,
-            ruleset_version=1,
-            outcome="PASS",
-            executed_at=now - datetime.timedelta(hours=6),
-            reasons_evaluated=[
+            ruleset_id=active_ruleset.id,
+            ruleset_version=active_ruleset.version,
+            trigger_source="APPLICATION_SUBMIT",
+            outcome="AUTO_APPROVE",
+            recommended_status="APPROVED",
+            eligibility_status="PASS",
+            completeness_status="PASS",
+            consistency_status="PASS",
+            risk_level="LOW",
+            auto_pass_eligible=True,
+            requires_human_review=False,
+            reason_codes=[
                 "TIER_5_TOKEN_PERMUTATION_MATCH",
                 "BANK_PENNY_DROP_ACRONYM_RESOLVED",
             ],
+            rule_results=[],
+            rework_items=[],
+            risk_indicators=[],
+            summary="Multi-part name acronym resolved by 8-tier Indian name consistency engine.",
+            executed_at=now - datetime.timedelta(hours=6),
         )
         session.add(exec_bnk)
 
@@ -824,13 +871,26 @@ def seed_demo_data(session: Session, reset: bool = False) -> dict:
 
         exec_age = RuleExecution(
             application_id=app_age.id,
-            ruleset_version=1,
-            outcome="PASS",
-            executed_at=now - datetime.timedelta(hours=1),
-            reasons_evaluated=[
+            ruleset_id=active_ruleset.id,
+            ruleset_version=active_ruleset.version,
+            trigger_source="APPLICATION_SUBMIT",
+            outcome="AUTO_APPROVE",
+            recommended_status="APPROVED",
+            eligibility_status="PASS",
+            completeness_status="PASS",
+            consistency_status="PASS",
+            risk_level="LOW",
+            auto_pass_eligible=True,
+            requires_human_review=False,
+            reason_codes=[
                 "MINIMUM_AGE_18_COMPLIANT",
                 "CLASS_10_QUALIFICATION_VALID",
             ],
+            rule_results=[],
+            rework_items=[],
+            risk_indicators=[],
+            summary="Candidate meets IRDAI minimum age statutory requirement exactly on DOB boundary.",
+            executed_at=now - datetime.timedelta(hours=1),
         )
         session.add(exec_age)
 
