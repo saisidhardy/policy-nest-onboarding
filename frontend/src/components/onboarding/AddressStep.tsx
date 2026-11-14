@@ -20,6 +20,8 @@ export function AddressStep({
   onSave: (payload: Record<string, unknown>, nextStep?: number) => Promise<void>;
   onBack: () => void;
 }) {
+  const [pinNotice, setPinNotice] = useState<string | null>(null);
+  const [pinLoading, setPinLoading] = useState(false);
   const [form, setForm] = useState({
     address_line1: application.address_line1 ?? "",
     address_line2: application.address_line2 ?? "",
@@ -34,6 +36,39 @@ export function AddressStep({
     permanent_state: application.permanent_state ?? "",
     permanent_pincode: application.permanent_pincode ?? "",
   });
+
+  const handlePincodeLookup = async (pin: string) => {
+    setForm((prev) => ({ ...prev, pincode: pin }));
+    if (pin.length === 6 && /^\d{6}$/.test(pin)) {
+      setPinLoading(true);
+      setPinNotice(null);
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
+            const po = data[0].PostOffice[0];
+            const dist = po.District || "";
+            const st = po.State || "";
+            const matchedState = INDIAN_STATES.find(
+              (s) => s.toLowerCase() === st.toLowerCase()
+            ) ?? st;
+            setForm((prev) => ({
+              ...prev,
+              district: prev.district || dist,
+              state: prev.state || matchedState,
+              city: prev.city || po.Name || dist,
+            }));
+            setPinNotice(`✓ India Post Verified: ${dist}, ${matchedState} (${po.Name})`);
+          }
+        }
+      } catch {
+        // Fallback silently if offline
+      } finally {
+        setPinLoading(false);
+      }
+    }
+  };
 
   const payload = () => ({
     address_line1: form.address_line1 || null,
@@ -113,13 +148,26 @@ export function AddressStep({
               ))}
             </Select>
           </Field>
-          <Field label="PIN code" htmlFor="a-pin" error={fieldErrors.pincode} hint="6-digit Indian postal PIN">
+          <Field
+            label="PIN code"
+            htmlFor="a-pin"
+            error={fieldErrors.pincode}
+            hint={
+              pinNotice ? (
+                <span className="font-medium text-emerald-700">{pinNotice}</span>
+              ) : pinLoading ? (
+                "Verifying with India Post..."
+              ) : (
+                "6-digit PIN code (auto-detects District & State via India Post)"
+              )
+            }
+          >
             <Input
               id="a-pin"
               inputMode="numeric"
               maxLength={6}
               value={form.pincode}
-              onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+              onChange={(e) => void handlePincodeLookup(e.target.value)}
               invalid={!!fieldErrors.pincode}
               required
             />

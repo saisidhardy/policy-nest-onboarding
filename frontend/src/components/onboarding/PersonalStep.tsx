@@ -118,7 +118,30 @@ export function PersonalStep({
               required
             />
           </Field>
-          <Field label="PAN number" htmlFor="p-pan" error={fieldErrors.pan_number} hint="10 characters, e.g. ABCDE1234F">
+          <Field
+            label="PAN number"
+            htmlFor="p-pan"
+            error={fieldErrors.pan_number}
+            hint={
+              form.pan_number.length === 10 ? (
+                /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan_number) ? (
+                  form.pan_number[3] === "P" ? (
+                    <span className="font-semibold text-emerald-700">
+                      ✓ CBDT Master Structure: Valid Individual PAN (4th character 'P' verified)
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-rose-600">
+                      ⚠️ 4th letter is '{form.pan_number[3]}' (Non-Individual). IRDAI requires an Individual PAN.
+                    </span>
+                  )
+                ) : (
+                  <span className="text-rose-600">Invalid PAN format (expected AAAAA9999A)</span>
+                )
+              ) : (
+                "10 alphanumeric characters (e.g. ABCDE1234F) · 4th character 'P' for Individual"
+              )
+            }
+          >
             <Input
               id="p-pan"
               value={form.pan_number}
