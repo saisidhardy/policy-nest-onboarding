@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+import httpx
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
 from sqlalchemy import select
@@ -21,6 +22,7 @@ from app.rbac.policy import Resource
 from app.schemas.auth import (
     AuthResult,
     ChangePasswordRequest,
+    ClerkExchangeRequest,
     EmailDispatchResult,
     EmailRequest,
     LoginRequest,
@@ -293,6 +295,102 @@ def verify_otp(body: OtpVerifyRequest, request: Request, response: Response, db:
 
     raw, session = create_session(db, user, request)
     audit.add(db, request, "auth.otp_login", actor=user, details={"session_id": str(session.id), "kind": kind})
+    set_auth_cookies(response, raw, session)
+    return _auth_result(user)
+
+
+@router.post("/clerk/exchange", response_model=AuthResult)
+def clerk_exchange(body: ClerkExchangeRequest, request: Request, response: Response, db: DB):
+    s = get_settings()
+    if not s.clerk_secret_key:
+        raise AppError(503, "CLERK_NOT_CONFIGURED", "Clerk authentication is not configured on the server.")
+
+    clerk_user_id = body.user_id.strip()
+    try:
+        resp = httpx.get(
+            f"https://api.clerk.com/v1/users/{clerk_user_id}",
+            headers={"Authorization": f"Bearer {s.clerk_secret_key}"},
+            timeout=10.0,
+        )
+    except Exception as exc:
+        raise AppError(502, "CLERK_GATEWAY_ERROR", f"Failed to contact Clerk authentication service: {exc}")
+
+    if resp.status_code != 200:
+        audit.add(
+            db,
+            request,
+            "auth.clerk_login",
+            audit.FAILURE,
+            details={"clerk_user_id": clerk_user_id, "status": resp.status_code},
+        )
+        db.commit()
+        raise AppError(401, "CLERK_UNAUTHORIZED", "Clerk session is invalid or user was not found.")
+
+    data = resp.json()
+
+    primary_email = None
+    email_addresses = data.get("email_addresses", [])
+    primary_email_id = data.get("primary_email_address_id")
+    for ea in email_addresses:
+        if ea.get("id") == primary_email_id or not primary_email:
+            primary_email = ea.get("email_address")
+
+    primary_mobile = None
+    phone_numbers = data.get("phone_numbers", [])
+    primary_phone_id = data.get("primary_phone_number_id")
+    for pn in phone_numbers:
+        if pn.get("id") == primary_phone_id or not primary_mobile:
+            raw_phone = pn.get("phone_number", "")
+            clean = normalize_mobile(raw_phone) if raw_phone else None
+            if clean:
+                primary_mobile = clean
+
+    first_name = data.get("first_name") or ""
+    last_name = data.get("last_name") or ""
+    full_name = f"{first_name} {last_name}".strip() or "POSP Applicant"
+
+    user = None
+    if primary_email:
+        user = _user_by_email(db, primary_email)
+    if user is None and primary_mobile:
+        user = db.scalar(select(User).where(User.mobile == primary_mobile))
+
+    now = utcnow()
+    if user is None:
+        applicant_role = db.scalar(select(Role).where(Role.code == RoleCode.APPLICANT.value))
+        assert applicant_role is not None, "Roles not seeded"
+        user_email = primary_email or (f"posp_{primary_mobile}@policynest.auto" if primary_mobile else f"posp_{clerk_user_id[:8]}@policynest.auto")
+        user = User(
+            id=uuid.uuid4(),
+            email=user_email,
+            mobile=primary_mobile,
+            full_name=full_name,
+            role=applicant_role,
+            is_active=True,
+            email_verified_at=now if primary_email else None,
+            password_hash=None,
+            password_changed_at=now,
+            last_login_at=now,
+        )
+        db.add(user)
+        db.flush()
+    else:
+        if not user.is_active:
+            raise AppError(403, "ACCOUNT_DISABLED", "This account has been disabled. Contact support.")
+        user.last_login_at = now
+        if primary_email and not user.email_verified_at:
+            user.email_verified_at = now
+        if primary_mobile and not user.mobile:
+            user.mobile = primary_mobile
+
+    raw, session = create_session(db, user, request)
+    audit.add(
+        db,
+        request,
+        "auth.clerk_login",
+        actor=user,
+        details={"session_id": str(session.id), "clerk_user_id": clerk_user_id},
+    )
     set_auth_cookies(response, raw, session)
     return _auth_result(user)
 

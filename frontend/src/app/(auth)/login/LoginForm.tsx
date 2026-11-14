@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { SignIn } from "@clerk/nextjs";
 import { KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { AuthShell } from "@/components/AuthShell";
 import { PasswordField } from "@/components/PasswordField";
@@ -10,14 +11,6 @@ import { Alert, Button, Field, Input } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/format";
-
-interface OtpSendResponse {
-  success: boolean;
-  delivery_channel: string;
-  destination_masked: string;
-  message: string;
-  cooldown_seconds: number;
-}
 
 export function LoginForm() {
   const router = useRouter();
@@ -34,27 +27,9 @@ export function LoginForm() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
-  // OTP mode state
-  const [identifier, setIdentifier] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpNotice, setOtpNotice] = useState<string | null>(null);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-
   useEffect(() => {
     if (!loading && me) router.replace(next);
   }, [loading, me, next, router]);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => {
-      setCooldown((c) => (c > 1 ? c - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
 
   async function onPasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,45 +42,6 @@ export function LoginForm() {
     } catch (err) {
       setPasswordError(err instanceof ApiError ? err.message : "Sign-in failed. Please try again.");
       setSubmittingPassword(false);
-    }
-  }
-
-  async function onSendOtp(e: React.FormEvent) {
-    e.preventDefault();
-    if (!identifier.trim()) return;
-    setOtpError(null);
-    setSendingOtp(true);
-    try {
-      const res = await api<OtpSendResponse>("/auth/otp/send", {
-        method: "POST",
-        body: { identifier: identifier.trim() },
-      });
-      setOtpSent(true);
-      setOtpNotice(res.message);
-      setCooldown(res.cooldown_seconds || 60);
-      setOtpCode("");
-    } catch (err) {
-      setOtpError(err instanceof ApiError ? err.message : "Failed to send code. Please try again.");
-    } finally {
-      setSendingOtp(false);
-    }
-  }
-
-  async function onVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    if (!otpCode.trim()) return;
-    setOtpError(null);
-    setVerifyingOtp(true);
-    try {
-      await api("/auth/otp/verify", {
-        method: "POST",
-        body: { identifier: identifier.trim(), code: otpCode.trim() },
-      });
-      await refresh();
-      router.replace(next);
-    } catch (err) {
-      setOtpError(err instanceof ApiError ? err.message : "Verification failed. Please check the code.");
-      setVerifyingOtp(false);
     }
   }
 
@@ -206,88 +142,29 @@ export function LoginForm() {
         </form>
       ) : (
         <div className="space-y-4">
-          {otpError && <Alert tone="error">{otpError}</Alert>}
-          {otpNotice && <Alert tone="success">{otpNotice}</Alert>}
+          <div className="rounded-md border border-brand-200 bg-brand-50/70 p-3 text-xs text-brand-900">
+            <div className="flex items-center gap-1.5 font-medium">
+              <Smartphone className="h-3.5 w-3.5 text-brand-600" />
+              <span>Real Candidate Verification Code</span>
+            </div>
+            <p className="mt-1">
+              Sign in with your registered Indian mobile number (+91) or email address to receive your 6-digit one-time code.
+            </p>
+          </div>
 
-          {!otpSent ? (
-            <form onSubmit={onSendOtp} className="space-y-4">
-              <Field
-                label="Email or Indian Mobile Number"
-                htmlFor="identifier"
-                hint="Enter your registered email address or 10-digit mobile number (+91)."
-              >
-                <Input
-                  id="identifier"
-                  type="text"
-                  placeholder="e.g. candidate@example.com or 9876543210"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  autoComplete="username"
-                  required
-                />
-              </Field>
-
-              <Button type="submit" className="w-full" loading={sendingOtp} disabled={!identifier.trim()}>
-                Send Verification Code
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={onVerifyOtp} className="space-y-4">
-              <Field
-                label="6-Digit Verification Code"
-                htmlFor="otpCode"
-                hint={`Code dispatched to ${identifier}. Valid for 10 minutes.`}
-              >
-                <Input
-                  id="otpCode"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  placeholder="Enter 6-digit code"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                  autoComplete="one-time-code"
-                  className="text-center font-mono text-lg tracking-widest"
-                  required
-                />
-              </Field>
-
-              <Button
-                type="submit"
-                className="w-full"
-                loading={verifyingOtp}
-                disabled={otpCode.trim().length !== 6}
-              >
-                Verify & Continue
-              </Button>
-
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtpNotice(null);
-                    setOtpError(null);
-                    setOtpCode("");
-                  }}
-                  className="font-medium text-slate-700 hover:underline"
-                >
-                  Change Email / Phone
-                </button>
-                <button
-                  type="button"
-                  onClick={onSendOtp}
-                  disabled={cooldown > 0 || sendingOtp}
-                  className={`font-medium ${
-                    cooldown > 0 ? "text-slate-400" : "text-brand-700 hover:underline"
-                  }`}
-                >
-                  {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
-                </button>
-              </div>
-            </form>
-          )}
+          <div className="flex justify-center">
+            <SignIn
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: "w-full",
+                  card: "shadow-none border-0 p-0 w-full bg-transparent",
+                  headerTitle: "text-base font-semibold text-slate-900",
+                  headerSubtitle: "text-xs text-slate-500",
+                },
+              }}
+            />
+          </div>
         </div>
       )}
     </AuthShell>

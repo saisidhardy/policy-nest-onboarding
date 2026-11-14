@@ -1,8 +1,10 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { DemoPersonaSwitcher } from "@/components/DemoPersonaSwitcher";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { AuthProvider } from "@/lib/auth";
+import { ClerkBridge } from "@/lib/ClerkBridge";
 import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
@@ -24,13 +26,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={inter.variable}>
       <body>
-        <AuthProvider>
-          <I18nProvider>
-            <ServiceWorkerRegistration />
-            {children}
-            <DemoPersonaSwitcher />
-          </I18nProvider>
-        </AuthProvider>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_ZXhjaXRpbmctbGFtcHJleS00NzY0LmNsZXJrLmFjY291bnRzLmRldiQ"}
+        >
+          <AuthProvider>
+            <ClerkBridge />
+            <I18nProvider>
+              <ServiceWorkerRegistration />
+              {children}
+              <DemoPersonaSwitcher />
+            </I18nProvider>
+          </AuthProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

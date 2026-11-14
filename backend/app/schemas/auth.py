@@ -83,6 +83,11 @@ class EmailRequest(BaseModel):
     email: EmailStr
 
 
+class ClerkExchangeRequest(BaseModel):
+    user_id: str = Field(min_length=3, max_length=128)
+    token: str | None = None
+
+
 class ResetPasswordRequest(BaseModel):
     token: str = Field(min_length=10, max_length=200)
     password: str = Field(min_length=1, max_length=256)

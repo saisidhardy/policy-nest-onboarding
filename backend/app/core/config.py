@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     lms_sync_retry_base_seconds: int = 300
     lms_sync_max_attempts: int = 5
 
+    # Clerk authentication settings
+    clerk_secret_key: str | None = None
+    clerk_publishable_key: str | None = None
+
     @field_validator("database_url")
     @classmethod
     def _use_psycopg_driver(cls, value: str) -> str:

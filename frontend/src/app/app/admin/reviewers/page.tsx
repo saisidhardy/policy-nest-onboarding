@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeft, Check, Copy, KeyRound, ShieldAlert, Sliders, UserCheck, UserPlus } from "lucide-react";
+import { ArrowRightLeft, Check, Copy, ShieldAlert, Sliders, UserCheck, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import {
