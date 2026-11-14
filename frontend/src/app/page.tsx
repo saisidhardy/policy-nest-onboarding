@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { LiveDecisionPlayground } from "@/components/home/LiveDecisionPlayground";
 
 const benchmarkMetrics = [
   { label: "Ground-Truth Accuracy", value: "99.50%", detail: "Tested on 600 ground-truth cases", tone: "emerald" },
@@ -191,6 +192,11 @@ export default function Home() {
               <QrCode className="h-4 w-4" />
               <span>Public Certificate Registry</span>
             </Link>
+          </div>
+
+          {/* Real-Time WOW Playground & Interactive Decision Sandbox */}
+          <div className="mt-14">
+            <LiveDecisionPlayground />
           </div>
 
           {/* Benchmark KPI Grid */}
