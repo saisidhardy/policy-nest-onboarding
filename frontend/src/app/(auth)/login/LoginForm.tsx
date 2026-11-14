@@ -17,7 +17,6 @@ interface OtpSendResponse {
   destination_masked: string;
   message: string;
   cooldown_seconds: number;
-  debug_code?: string | null;
 }
 
 export function LoginForm() {
@@ -41,7 +40,6 @@ export function LoginForm() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
-  const [debugOtp, setDebugOtp] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
@@ -85,10 +83,7 @@ export function LoginForm() {
       setOtpSent(true);
       setOtpNotice(res.message);
       setCooldown(res.cooldown_seconds || 60);
-      if (res.debug_code) {
-        setDebugOtp(res.debug_code);
-        setOtpCode(res.debug_code);
-      }
+      setOtpCode("");
     } catch (err) {
       setOtpError(err instanceof ApiError ? err.message : "Failed to send code. Please try again.");
     } finally {
@@ -214,16 +209,6 @@ export function LoginForm() {
           {otpError && <Alert tone="error">{otpError}</Alert>}
           {otpNotice && <Alert tone="success">{otpNotice}</Alert>}
 
-          {debugOtp && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
-              <span className="font-semibold">Verification Code:</span>{" "}
-              <code className="rounded bg-white px-2 py-0.5 font-mono text-sm font-bold text-emerald-700">
-                {debugOtp}
-              </code>{" "}
-              <span className="text-emerald-700">(auto-filled)</span>
-            </div>
-          )}
-
           {!otpSent ? (
             <form onSubmit={onSendOtp} className="space-y-4">
               <Field
@@ -284,7 +269,7 @@ export function LoginForm() {
                     setOtpSent(false);
                     setOtpNotice(null);
                     setOtpError(null);
-                    setDebugOtp(null);
+                    setOtpCode("");
                   }}
                   className="font-medium text-slate-700 hover:underline"
                 >

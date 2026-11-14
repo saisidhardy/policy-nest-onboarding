@@ -243,14 +243,9 @@ def send_otp(body: OtpSendRequest, db: DB, background: BackgroundTasks):
         raise AppError(429, "RATE_LIMITED", f"Please wait {remain} seconds before requesting a new code.")
 
     otp = issue_otp_token(db, user, ttl_minutes=10)
-    debug_code: str | None = None
 
     if kind == "EMAIL" or (user.email and not user.email.endswith(".auto")):
-        delivery = queue_email(db, background, user, "otp_login", otp)
-        if delivery == "NOT_CONFIGURED" or get_settings().app_env != "production":
-            debug_code = otp
-    else:
-        debug_code = otp
+        queue_email(db, background, user, "otp_login", otp)
 
     masked = _mask_destination(val, kind)
     return OtpSendResult(
@@ -259,7 +254,7 @@ def send_otp(body: OtpSendRequest, db: DB, background: BackgroundTasks):
         destination_masked=masked,
         message=f"A 6-digit verification code has been dispatched to {masked}.",
         cooldown_seconds=60,
-        debug_code=debug_code,
+        debug_code=None,
     )
 
 
