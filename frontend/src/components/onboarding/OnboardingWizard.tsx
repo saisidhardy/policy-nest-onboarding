@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, History, Sparkles, UploadCloud } from "lucide-react";
+import { Check, History, Sparkles, Timer, UploadCloud, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -18,6 +18,7 @@ import { DocumentsStep } from "./DocumentsStep";
 import { EducationStep } from "./EducationStep";
 import { PersonalStep } from "./PersonalStep";
 import { ReviewStep } from "./ReviewStep";
+import { ThirtyMinuteOnboardingSession } from "./ThirtyMinuteOnboardingSession";
 
 export function OnboardingWizard({
   application,
@@ -31,6 +32,7 @@ export function OnboardingWizard({
   const router = useRouter();
   const { t } = useI18n();
   const [step, setStep] = useState<number>(application.current_step || 1);
+  const [sessionMode, setSessionMode] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -116,6 +118,20 @@ export function OnboardingWizard({
     review: application.completeness.sections.declarations,
   };
 
+  if (sessionMode) {
+    return (
+      <ThirtyMinuteOnboardingSession
+        application={application}
+        onReload={onReload}
+        onExit={() => setSessionMode(false)}
+        onComplete={() => {
+          setSessionMode(false);
+          setStep(6);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -123,6 +139,15 @@ export function OnboardingWizard({
         description={`Last saved ${formatDateTime(application.last_saved_at)} · ${application.completeness.completed_sections} of ${application.completeness.total_sections} sections complete`}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setSessionMode(true)}
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              <Timer className="h-3.5 w-3.5" /> 30-Min Session
+            </Button>
             <ApplicationStatusBadge status={application.status} />
             <Link
               href={`/app/applications/${application.id}`}
@@ -196,18 +221,40 @@ export function OnboardingWizard({
 
       {savedNotice && <Alert tone="success">{savedNotice}</Alert>}
 
-      {application.status === "DRAFT" && step < 5 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3 text-sm">
-          <div className="flex items-start gap-2.5">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+      {application.status === "DRAFT" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50/70 p-4 text-sm shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+              <Timer className="h-4 w-4" />
+            </div>
             <div>
-              <p className="font-semibold text-slate-900">{t.wizard.fastTrack}</p>
-              <p className="text-xs text-slate-600">{t.wizard.fastTrackNotice}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-emerald-950">30-Minute Fast-Track Onboarding Session</p>
+                <span className="rounded-full bg-emerald-200/70 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                  Recommended UX
+                </span>
+              </div>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Complete all 6 mandatory compliance documents in one focused, distraction-free guided session with live quality checks and continuous timer.
+              </p>
             </div>
           </div>
-          <Button type="button" variant="secondary" size="sm" onClick={() => setStep(5)}>
-            <UploadCloud className="h-4 w-4" /> {t.docs.uploadButton}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setSessionMode(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              <Zap className="h-4 w-4 mr-1.5" /> Start 30-Minute Session
+            </Button>
+            {step < 5 && (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setStep(5)}>
+                <UploadCloud className="h-4 w-4 mr-1.5" /> Jump to Docs
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

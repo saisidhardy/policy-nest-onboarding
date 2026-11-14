@@ -122,4 +122,33 @@ describe("OnboardingWizard", () => {
     expect(screen.getByText("5. Cancelled Cheque / Bank Proof")).toBeInTheDocument();
     expect(screen.getByText("6. Applicant Selfie")).toBeInTheDocument();
   });
+
+  it("launches the dedicated 30-Minute Onboarding Session with countdown, 6 doc slots, and dual input methods", async () => {
+    render(<OnboardingWizard application={makeApp({ current_step: 1 })} onUpdated={vi.fn()} onReload={vi.fn()} />);
+
+    // Click to start 30-Minute session
+    const startBtn = screen.getByRole("button", { name: /Start 30-Minute Session/i });
+    expect(startBtn).toBeInTheDocument();
+    await userEvent.click(startBtn);
+
+    // Verify 30-Minute focused session renders
+    expect(screen.getByText("PolicyNest Fast-Track")).toBeInTheDocument();
+    expect(screen.getByText("30-Min Session")).toBeInTheDocument();
+    expect(screen.getByText("Session in Progress")).toBeInTheDocument();
+    expect(screen.getByText("Real POSP conditions: 6 mandatory compliance documents, continuous guided workflow, instant quality verification.")).toBeInTheDocument();
+
+    // Verify countdown timer and bottom metrics
+    expect(screen.getByTitle("Session Countdown Timer")).toHaveTextContent(/30:00|29:59/);
+    expect(screen.getByText("Current Average Quality")).toBeInTheDocument();
+    expect(screen.getByText("Time Remaining")).toBeInTheDocument();
+    expect(screen.getByText("Documents Complete")).toBeInTheDocument();
+
+    // Verify dual input buttons (Image 1 requirement)
+    expect(screen.getByRole("button", { name: /Launch Live Camera/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Choose Local File/i })).toBeInTheDocument();
+
+    // Verify Exit button returns to standard wizard
+    await userEvent.click(screen.getByRole("button", { name: /Exit to Wizard/i }));
+    expect(screen.getByText("Step 1: Personal details")).toBeInTheDocument();
+  });
 });

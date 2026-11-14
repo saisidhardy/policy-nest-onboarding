@@ -2,7 +2,7 @@ import os
 import re
 import secrets
 
-os.environ.setdefault("TEST_DATABASE_URL", "postgresql+psycopg://policynest:policynest@localhost:5432/policynest_test")
+os.environ.setdefault("TEST_DATABASE_URL", "postgresql+psycopg://policynest:policynest@127.0.0.1:5432/policynest_test?connect_timeout=2")
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 os.environ["APP_ENV"] = "test"
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(48)

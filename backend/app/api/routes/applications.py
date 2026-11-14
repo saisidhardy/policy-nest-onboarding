@@ -1,7 +1,9 @@
 import html
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -150,6 +152,64 @@ def get_application_history(
     app = app_service.get_application(db, application_id)
     enforce_policy(request, auth, _read_perm(auth), _app_resource(app))
     return [ApplicationEventOut.model_validate(e) for e in app.events]
+
+
+@router.get("/{application_id}/stream", summary="Real-time SSE event stream for application progressive processing")
+async def stream_application_events(
+    application_id: uuid.UUID,
+    request: Request,
+    db: DB,
+    auth: AuthContext = Depends(require_any_permission("application:read_own", "application:read_any")),
+):
+    app = app_service.get_application(db, application_id)
+    enforce_policy(request, auth, _read_perm(auth), _app_resource(app))
+
+    async def event_generator():
+        # Capability 2 & 8: Real-time SSE communication & Progressive connection ACK
+        init_data = {
+            "event": "connected",
+            "application_id": str(app.id),
+            "reference_code": app.reference_code,
+            "status": app.status,
+            "document_count": len([d for d in app.documents if d.is_current]),
+            "timestamp": utcnow().isoformat(),
+        }
+        yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
+
+        for d in app.documents:
+            if d.is_current:
+                doc_payload = {
+                    "event": "document_status",
+                    "doc_id": str(d.id),
+                    "doc_type": d.doc_type,
+                    "version": d.version,
+                    "quality_status": d.extraction.quality_status if d.extraction else "OK",
+                    "ocr_confidence": d.extraction.ocr_confidence if d.extraction else None,
+                    "classification_match": d.extraction.classification_match if d.extraction else True,
+                }
+                yield f"event: document\ndata: {json.dumps(doc_payload)}\n\n"
+
+        for e in sorted(app.events, key=lambda ev: ev.created_at)[-5:]:
+            ev_data = {
+                "event": "timeline_event",
+                "event_type": e.event_type,
+                "from_status": e.from_status,
+                "to_status": e.to_status,
+                "created_at": e.created_at.isoformat(),
+            }
+            yield f"event: timeline\ndata: {json.dumps(ev_data)}\n\n"
+
+        yield f"event: ready\ndata: {json.dumps({'status': 'listening', 'active': True})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{application_id}/documents", response_model=list[DocumentOut])
