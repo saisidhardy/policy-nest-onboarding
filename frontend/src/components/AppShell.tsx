@@ -4,6 +4,7 @@ import clsx from "clsx";
 import {
   BarChart3,
   Bell,
+  BrainCircuit,
   FileCheck2,
   FolderKanban,
   Gauge,
@@ -11,6 +12,7 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  Network,
   Plug,
   ScrollText,
   Server,
@@ -32,6 +34,7 @@ import { Badge } from "./ui";
 import { VerificationBanner } from "./VerificationBanner";
 import { LanguageToggle } from "./LanguageToggle";
 import { AiAssistantWidget } from "./AiAssistantWidget";
+import { CommandPalette } from "./CommandPalette";
 import { useI18n } from "@/lib/i18n";
 
 export interface NavItem {
@@ -46,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/app/onboarding", label: "Onboarding", icon: FileCheck2, permission: "application:create" },
   { href: "/app/applications", label: "My applications", icon: FolderKanban, permission: "application:read_own" },
   { href: "/app/review", label: "Document review", icon: ShieldCheck, permission: "application:review" },
+  { href: "/app/review/fraud-graph", label: "Fraud Ring Network", icon: Network, permission: "application:review" },
   { href: "/app/review/analytics", label: "Ops analytics", icon: BarChart3, permission: "analytics:read" },
   { href: "/app/training", label: "Training & LMS", icon: GraduationCap, permission: "profile:read" },
   { href: "/app/notifications", label: "Notifications", icon: Bell, permission: "profile:read" },
@@ -56,6 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/app/admin/roles", label: "Roles & permissions", icon: KeyRound, permission: "roles:read" },
   { href: "/app/admin/rules", label: "Business rules", icon: SlidersHorizontal, permission: "config:manage" },
   { href: "/app/admin/integrations", label: "Integrations & LMS", icon: Plug, permission: "config:manage" },
+  { href: "/app/admin/benchmark", label: "AI Benchmark Studio", icon: BrainCircuit, permission: "config:manage" },
   { href: "/app/admin/audit", label: "Audit log", icon: ScrollText, permission: "audit:read" },
   { href: "/app/admin/system", label: "System status", icon: Server, permission: "system:read" },
 ];
@@ -227,6 +232,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {!me.user.email_verified && <VerificationBanner />}
         {children}
       </main>
+      <CommandPalette />
       <AiAssistantWidget />
     </div>
   );

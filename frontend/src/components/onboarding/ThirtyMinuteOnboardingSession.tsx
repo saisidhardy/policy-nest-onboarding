@@ -21,8 +21,10 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, apiForm, ApiError } from "@/lib/api";
+import { fireConfetti } from "@/lib/confetti";
 import { REQUIRED_DOCUMENTS } from "@/lib/constants";
 import { normalizeAndOptimizeImage } from "@/lib/imagePrep";
+import { sound } from "@/lib/soundFx";
 import type {
   ApplicationDetail,
   ApplicationDocument,
@@ -223,6 +225,7 @@ export function ThirtyMinuteOnboardingSession({
 
       // Capability 3: Progressive Quality Feedback
       if (qStatus === "OK") {
+        sound.playSuccess();
         setQualityFeedback({
           status: "OK",
           badge: "Q4 Optimal",
@@ -239,6 +242,8 @@ export function ThirtyMinuteOnboardingSession({
             setQualityFeedback(null);
           }, 850);
         } else {
+          sound.playTrophy();
+          fireConfetti();
           setInstantAck(null);
         }
       } else {
@@ -257,6 +262,7 @@ export function ThirtyMinuteOnboardingSession({
   };
 
   const handleDigiLockerImport = async () => {
+    sound.playScan();
     setUploading(true);
     setErrorMessage(null);
     setInstantAck("⚡ Connecting to DigiLocker (UIDAI/CBDT/CBSE Rails)...");
@@ -330,6 +336,7 @@ export function ThirtyMinuteOnboardingSession({
   };
 
   const handleEvaluateInstantDecision = async () => {
+    sound.playClick();
     setVerifying(true);
     setErrorMessage(null);
     try {
@@ -337,6 +344,8 @@ export function ThirtyMinuteOnboardingSession({
         method: "POST",
         body: { apply_transition: true, trigger_source: "SESSION_COMPLETE" },
       });
+      sound.playTrophy();
+      fireConfetti();
       setDecisionOutcome(res.outcome);
       await onReload();
       if (onComplete) onComplete();
@@ -476,6 +485,7 @@ export function ThirtyMinuteOnboardingSession({
                 key={docSpec.type}
                 type="button"
                 onClick={() => {
+                  sound.playClick();
                   setActiveIndex(idx);
                   setInstantAck(null);
                   setQualityFeedback(null);
@@ -781,6 +791,7 @@ export function ThirtyMinuteOnboardingSession({
               size="sm"
               disabled={activeIndex === 0}
               onClick={() => {
+                sound.playClick();
                 setActiveIndex((prev) => Math.max(0, prev - 1));
                 setInstantAck(null);
                 setQualityFeedback(null);
@@ -801,6 +812,7 @@ export function ThirtyMinuteOnboardingSession({
               size="sm"
               disabled={activeIndex === REQUIRED_DOCUMENTS.length - 1}
               onClick={() => {
+                sound.playClick();
                 setActiveIndex((prev) => Math.min(REQUIRED_DOCUMENTS.length - 1, prev + 1));
                 setInstantAck(null);
                 setQualityFeedback(null);
