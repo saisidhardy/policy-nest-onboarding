@@ -139,6 +139,56 @@ export function LoginForm() {
           <Button type="submit" className="w-full" loading={submittingPassword} disabled={!email || !password}>
             Sign in
           </Button>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+            <p className="font-semibold text-slate-900 mb-2">⚡ Quick Demo Logins (Click to autofill):</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("admin@policynest.demo");
+                  setPassword("Demo@PolicyNest2026!");
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 transition-colors"
+              >
+                👑 <strong>Admin</strong>
+                <span className="block text-[10px] text-slate-500">Full system access</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("reviewer@policynest.demo");
+                  setPassword("Demo@PolicyNest2026!");
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 transition-colors"
+              >
+                ⚖️ <strong>Senior Reviewer</strong>
+                <span className="block text-[10px] text-slate-500">Overrides &amp; Appeals</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("posp_stp@policynest.demo");
+                  setPassword("Demo@PolicyNest2026!");
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 transition-colors"
+              >
+                ⚡ <strong>STP Candidate</strong>
+                <span className="block text-[10px] text-slate-500">Auto-approved</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("posp_fraud@policynest.demo");
+                  setPassword("Demo@PolicyNest2026!");
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 transition-colors"
+              >
+                🚨 <strong>Fraud Candidate</strong>
+                <span className="block text-[10px] text-slate-500">Anomaly quarantine</span>
+              </button>
+            </div>
+          </div>
         </form>
       ) : (
         <div className="space-y-4">
