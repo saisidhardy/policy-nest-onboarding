@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowRight, Eye, ScrollText } from "lucide-react";
+import { ArrowRight, Eye, ScrollText, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
+import { IrdaiAuditDossierModal } from "@/components/compliance/IrdaiAuditDossierModal";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
 import { DecisionHistoryPanel } from "@/components/verification/DecisionHistoryPanel";
@@ -38,6 +39,7 @@ function ApplicationDetailView() {
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<ApplicationDocument | null>(null);
+  const [showDossierModal, setShowDossierModal] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -98,12 +100,21 @@ function ApplicationDetailView() {
               </Link>
             )}
             {(app.status === "KYC_APPROVED" || app.status === "TRAINING_IN_PROGRESS" || app.status === "CERTIFIED") && (
-              <Button
-                variant="secondary"
-                onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
-              >
-                <ScrollText className="h-4 w-4" /> Official Dossier
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  className="gap-1.5 border-brand-300 text-brand-800 bg-brand-50 hover:bg-brand-100"
+                  onClick={() => setShowDossierModal(true)}
+                >
+                  <ShieldCheck className="h-4 w-4 text-brand-700" /> IRDAI Audit Dossier
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
+                >
+                  <ScrollText className="h-4 w-4" /> HTML Dossier
+                </Button>
+              </>
             )}
             {app.status === "DRAFT" && (
               <Button variant="secondary" loading={withdrawing} onClick={withdraw}>
@@ -236,6 +247,13 @@ function ApplicationDetailView() {
       </div>
 
       <DocumentPreviewModal applicationId={app.id} document={previewDoc} onClose={() => setPreviewDoc(null)} />
+
+      <IrdaiAuditDossierModal
+        application={app}
+        report={verification}
+        isOpen={showDossierModal}
+        onClose={() => setShowDossierModal(false)}
+      />
     </div>
   );
 }

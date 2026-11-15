@@ -1,10 +1,12 @@
 "use client";
 
-import { AlertOctagon, ArrowLeft, Eye, ScrollText, ShieldCheck, UserCheck } from "lucide-react";
+import { AlertOctagon, ArrowLeft, Eye, MessageSquare, ScrollText, ShieldCheck, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
+import { IrdaiAuditDossierModal } from "@/components/compliance/IrdaiAuditDossierModal";
+import { WhatsAppDispatchSimulator } from "@/components/notifications/WhatsAppDispatchSimulator";
 import { ApplicationStatusBadge } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
 import { FieldComparisonCard } from "@/components/review/FieldComparisonCard";
@@ -48,6 +50,8 @@ function ReviewerDetailInner() {
   const [showFraudBox, setShowFraudBox] = useState(false);
   const [fraudReason, setFraudReason] = useState("");
   const [fraudResolveText, setFraudResolveText] = useState("");
+  const [showDossierModal, setShowDossierModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -212,13 +216,31 @@ function ReviewerDetailInner() {
                 </Button>
               )}
               {app.status !== "DRAFT" && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
-                >
-                  <ScrollText className="h-3.5 w-3.5" /> View Dossier
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="gap-1.5 border-brand-300 text-brand-800 bg-brand-50 hover:bg-brand-100"
+                    onClick={() => setShowDossierModal(true)}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 text-brand-700" /> IRDAI Audit Dossier
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="gap-1.5 border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                    onClick={() => setShowWhatsAppModal(true)}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 text-emerald-700" /> WhatsApp &amp; SMS Dispatch
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => window.open(`/api/v1/applications/${app.id}/dossier?format=html`, "_blank")}
+                  >
+                    <ScrollText className="h-3.5 w-3.5" /> HTML Dossier
+                  </Button>
+                </>
               )}
             </div>
 
@@ -386,6 +408,21 @@ function ReviewerDetailInner() {
       </div>
 
       <DocumentPreviewModal applicationId={app.id} document={previewDoc} onClose={() => setPreviewDoc(null)} />
+
+      <IrdaiAuditDossierModal
+        application={app}
+        report={report}
+        isOpen={showDossierModal}
+        onClose={() => setShowDossierModal(false)}
+      />
+
+      <WhatsAppDispatchSimulator
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        candidateName={app.full_name || "Applicant"}
+        mobile={app.mobile || "+91 98765 43210"}
+        referenceCode={app.reference_code}
+      />
     </>
   );
 }

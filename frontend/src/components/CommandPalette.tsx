@@ -3,13 +3,16 @@
 import clsx from "clsx";
 import {
   ArrowRight,
+  BarChart3,
   Bot,
   Command,
   FileCheck2,
   Lock,
+  MessageSquare,
   Network,
   QrCode,
   Search,
+  ShieldAlert,
   Sparkles,
   Timer,
   Volume2,
@@ -64,6 +67,42 @@ export function CommandPalette() {
       perform: () => {
         sound.playScan();
         router.push("/app/onboarding");
+      },
+    },
+    {
+      id: "analytics-cockpit",
+      category: "Navigation",
+      title: "Product & Cost Intelligence Cockpit",
+      subtitle: "Applicant funnels, 5.7-day SLA targets, and API unit economics",
+      icon: BarChart3,
+      badge: "Phase 9",
+      perform: () => {
+        sound.playClick();
+        router.push("/app/admin/analytics");
+      },
+    },
+    {
+      id: "sla-breach-radar",
+      category: "Navigation",
+      title: "30-Minute SLA Breach Radar",
+      subtitle: "Live queue urgency alerts, countdown tickers, and fast-track routing",
+      icon: ShieldAlert,
+      badge: "Ops Radar",
+      perform: () => {
+        sound.playClick();
+        router.push("/app/review");
+      },
+    },
+    {
+      id: "whatsapp-console",
+      category: "Navigation",
+      title: "WhatsApp Business & DLT SMS Simulator",
+      subtitle: "Interactive dispatch console, template preview, and read receipts",
+      icon: MessageSquare,
+      badge: "DLT Ready",
+      perform: () => {
+        sound.playClick();
+        router.push("/app/notifications");
       },
     },
     {

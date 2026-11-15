@@ -1,3 +1,9 @@
+from app.models.analytics import (
+    ApiCostRecord,
+    ProductEvent,
+    ProviderPricingRegistry,
+    WorkflowStageTiming,
+)
 from app.models.application import Application, ApplicationDocument, ApplicationEvent
 from app.models.audit import AuditLog
 from app.models.base import Base
@@ -11,6 +17,7 @@ from app.models.user import Permission, Role, User, UserActionToken, UserSession
 from app.models.verification import DocumentExtraction, DocumentFieldCorrection, VerificationCheck
 
 __all__ = [
+    "ApiCostRecord",
     "Application",
     "ApplicationAppeal",
     "ApplicationDecision",
@@ -25,6 +32,8 @@ __all__ = [
     "LmsSyncLog",
     "Notification",
     "Permission",
+    "ProductEvent",
+    "ProviderPricingRegistry",
     "Role",
     "RuleExecution",
     "RuleSet",
@@ -36,5 +45,6 @@ __all__ = [
     "UserSession",
     "VerificationCheck",
     "WebhookDelivery",
+    "WorkflowStageTiming",
     "role_permissions",
 ]

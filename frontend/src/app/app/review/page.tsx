@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ApplicationStatusBadge } from "@/components/onboarding/ApplicationTracker";
 import { ReviewPortalTabs } from "@/components/review/ReviewPortalTabs";
+import { SlaBreachRadarCockpit } from "@/components/review/SlaBreachRadarCockpit";
 import { Alert, Badge, Button, Card, Input, PageHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -108,51 +109,15 @@ function ReviewerQueueInner() {
 
       {error && <Alert tone="error" className="mb-4">{error}</Alert>}
 
-      {sla && (
-        <div
-          className={clsx(
-            "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-xs font-medium transition",
-            sla.status === "BREACHED"
-              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200"
-              : "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/20 dark:text-emerald-200"
-          )}
-        >
-          <div className="flex items-center gap-2">
-            {sla.status === "BREACHED" ? (
-              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-            ) : (
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            )}
-            <span className="font-semibold">
-              {sla.status === "BREACHED" ? "Reviewer SLA Alert" : "Queue SLA Operational"}
-            </span>
-            <span className="text-muted-foreground">•</span>
-            <span>
-              {sla.status === "BREACHED"
-                ? `${sla.breach_count} unassigned application(s) exceed ${sla.sla_threshold_minutes}m threshold (Max wait: ${sla.max_wait_minutes} min)`
-                : `All unassigned reviews within ${sla.sla_threshold_minutes}m target (Max wait: ${sla.max_wait_minutes} min)`}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">
-              Unassigned: <strong>{sla.total_unassigned}</strong>
-            </span>
-            {sla.status === "BREACHED" && queueView !== "unassigned" && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-6 px-2 text-[11px]"
-                onClick={() => {
-                  setQueueView("unassigned");
-                  setPage(1);
-                }}
-              >
-                View Breached Applications
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 30-Minute Regulatory SLA Breach Radar Cockpit */}
+      <SlaBreachRadarCockpit
+        sla={sla}
+        items={data?.items ?? []}
+        onFilterUrgent={() => {
+          setQueueView("unassigned");
+          setPage(1);
+        }}
+      />
 
       {kpis && (
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

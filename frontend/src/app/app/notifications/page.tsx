@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { WhatsAppDispatchSimulator } from "@/components/notifications/WhatsAppDispatchSimulator";
 import { Alert, Badge, Button, Card, EmptyState, PageHeader, Pagination, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
@@ -14,6 +15,7 @@ export default function NotificationsPageView() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   const load = useCallback(() => {
     api<NotificationsPage>("/notifications", { query: { unread_only: unreadOnly, page, page_size: 15 } }).then(
@@ -60,6 +62,14 @@ export default function NotificationsPageView() {
         description="Updates on your onboarding application, uploaded documents, and account."
         action={
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1.5 border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+              onClick={() => setShowWhatsAppModal(true)}
+            >
+              <MessageSquare className="h-4 w-4 text-emerald-700" /> WhatsApp &amp; DLT SMS Console
+            </Button>
             <Button
               variant={unreadOnly ? "primary" : "secondary"}
               size="sm"
@@ -118,6 +128,11 @@ export default function NotificationsPageView() {
           </>
         )}
       </Card>
+
+      <WhatsAppDispatchSimulator
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+      />
     </>
   );
 }
