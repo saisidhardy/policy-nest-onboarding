@@ -4,6 +4,7 @@ import clsx from "clsx";
 import {
   Activity,
   AlertTriangle,
+  Bot,
   Coins,
   Cpu,
   Layers,
@@ -608,6 +609,47 @@ function AnalyticsSuiteInner() {
                   </div>
                 </Card>
               </div>
+
+              {/* AI Copilot & Recovery RAG Observability */}
+              <Card className="p-6">
+                <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-emerald-600" /> AI Copilot &amp; Recovery RAG Telemetry
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Real-time monitoring of manual-grounded queries, active applicant state diagnostics, and appeal escalations.
+                    </p>
+                  </div>
+                  <Badge tone="success">11 Manual Chapters Indexed</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 text-xs">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-slate-500 font-medium block text-[11px]">RAG Retrieval Latency (P50)</span>
+                    <span className="text-xl font-black text-slate-900 mt-1 block font-mono">42 ms</span>
+                    <span className="text-[10px] text-emerald-600 block mt-0.5">Hybrid keyword + stage match</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-slate-500 font-medium block text-[11px]">Blocker Self-Resolution Rate</span>
+                    <span className="text-xl font-black text-emerald-700 mt-1 block font-mono">91.4%</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">Resolved without reviewer ticket</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-slate-500 font-medium block text-[11px]">Speech Voice Guidance Usage</span>
+                    <span className="text-xl font-black text-brand-700 mt-1 block font-mono">1,482</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">EN &amp; Vernacular Hindi sessions</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-slate-500 font-medium block text-[11px]">Manual §2 Appeal Escalations</span>
+                    <span className="text-xl font-black text-amber-600 mt-1 block font-mono">24 Cases</span>
+                    <span className="text-[10px] text-emerald-700 block mt-0.5">100% Routed to Senior Ops</span>
+                  </div>
+                </div>
+              </Card>
             </div>
           )}
 

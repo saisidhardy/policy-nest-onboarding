@@ -1514,11 +1514,11 @@ def submit_appeal(
     auth: AuthContext,
     request: Request,
 ) -> ApplicationAppeal:
-    if app.status != "REJECTED":
+    if app.status not in ("REJECTED", "NEEDS_MORE_INFO"):
         raise AppError(
             409,
-            "APPEAL_ONLY_FOR_REJECTED",
-            "Formal appeals can only be submitted on REJECTED applications.",
+            "APPEAL_ONLY_FOR_REJECTED_OR_REWORK",
+            "Formal appeals can only be submitted on REJECTED or NEEDS_MORE_INFO applications.",
         )
 
     existing_open = db.scalar(

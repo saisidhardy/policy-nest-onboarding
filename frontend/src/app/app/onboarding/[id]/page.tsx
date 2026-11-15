@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
+import { OnboardingAssistantHUD } from "@/components/assistant/OnboardingAssistantHUD";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { Alert, PageHeader, Spinner } from "@/components/ui";
@@ -64,10 +65,30 @@ function OnboardingLoader() {
             </Link>
           }
         />
+        <OnboardingAssistantHUD
+          applicationId={app.id}
+          referenceCode={app.reference_code}
+          status={app.status}
+          currentStep={app.current_step}
+          totalSteps={6}
+          completedDocsCount={app.documents ? app.documents.length : 0}
+        />
         <ApplicationTracker application={app} />
       </div>
     );
   }
 
-  return <OnboardingWizard application={app} onUpdated={setApp} onReload={load} />;
+  return (
+    <div className="space-y-6">
+      <OnboardingAssistantHUD
+        applicationId={app.id}
+        referenceCode={app.reference_code}
+        status={app.status}
+        currentStep={app.current_step}
+        totalSteps={6}
+        completedDocsCount={app.documents ? app.documents.length : 0}
+      />
+      <OnboardingWizard application={app} onUpdated={setApp} onReload={load} />
+    </div>
+  );
 }

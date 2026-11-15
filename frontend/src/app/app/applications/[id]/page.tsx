@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
+import { OnboardingAssistantHUD } from "@/components/assistant/OnboardingAssistantHUD";
 import { IrdaiAuditDossierModal } from "@/components/compliance/IrdaiAuditDossierModal";
 import { ApplicationTracker } from "@/components/onboarding/ApplicationTracker";
 import { DocumentPreviewModal } from "@/components/onboarding/DocumentPreviewModal";
@@ -123,6 +124,15 @@ function ApplicationDetailView() {
             )}
           </div>
         }
+      />
+
+      <OnboardingAssistantHUD
+        applicationId={app.id}
+        referenceCode={app.reference_code}
+        status={app.status}
+        currentStep={app.current_step}
+        totalSteps={6}
+        completedDocsCount={app.documents ? app.documents.length : 0}
       />
 
       <ApplicationTracker application={app} />
