@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 
-from app.api.deps import DB, AuthContext, enforce_policy, get_current_user_optional, require_any_permission, require_permission
+from app.api.deps import DB, AuthContext, enforce_policy, get_optional_auth, require_any_permission, require_permission
 from app.rbac.policy import Resource
 from app.schemas.analytics import (
     ApplicantJourneyOut,
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 def ingest_product_event(
     event: ProductEventCreate,
     db: DB,
-    auth: AuthContext | None = Depends(get_current_user_optional),
+    auth: AuthContext | None = Depends(get_optional_auth),
 ) -> ProductEventOut:
     """Record a client lifecycle event with DPDP compliance and zero raw PII."""
     user_id = auth.user.id if auth else None

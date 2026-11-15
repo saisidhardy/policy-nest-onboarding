@@ -95,6 +95,14 @@ def get_auth(request: Request, db: DB) -> AuthContext:
     return AuthContext(user=user, session=session)
 
 
+def get_optional_auth(request: Request, db: DB) -> AuthContext | None:
+    """Optional authentication that returns None instead of raising AppError on missing auth."""
+    try:
+        return get_auth(request, db)
+    except AppError:
+        return None
+
+
 CurrentAuth = Annotated[AuthContext, Depends(get_auth)]
 
 
