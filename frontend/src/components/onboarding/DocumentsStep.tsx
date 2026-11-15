@@ -30,6 +30,8 @@ import type {
 import { DocumentPreviewModal } from "./DocumentPreviewModal";
 import { GuidedDocumentCapture } from "./GuidedDocumentCapture";
 import { SelfieCameraCapture } from "./SelfieCameraCapture";
+import { PhotoCoachingCard } from "./PhotoCoachingCard";
+import { DocumentFeedbackCard } from "./DocumentFeedbackCard";
 
 const QUALITY_META: Record<string, { label: string; tone: "success" | "warning" | "danger" }> = {
   OK: { label: "Quality OK", tone: "success" },
@@ -307,6 +309,9 @@ export function DocumentsStep({
             </div>
           </div>
 
+          {/* Photography Coaching (Workstream D) */}
+          <PhotoCoachingCard />
+
           <div className="grid gap-4 md:grid-cols-2">
             {REQUIRED_DOCUMENTS.map((spec) => {
               const doc = byType.get(spec.type);
@@ -393,10 +398,13 @@ export function DocumentsStep({
                   </div>
 
                   <div className="mt-4 space-y-2">
-                    {slotError?.docType === spec.type && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                        {slotError.message}
-                      </div>
+                    {(slotError?.docType === spec.type || (ext && ext.quality_status !== "OK")) && (
+                      <DocumentFeedbackCard
+                        docType={spec.type}
+                        qualityStatus={ext?.quality_status}
+                        extraction={ext}
+                        customError={slotError?.docType === spec.type ? slotError.message : null}
+                      />
                     )}
 
                     {isBusy && (

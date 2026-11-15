@@ -17,6 +17,7 @@ export function PersonalStep({
   fieldErrors: Record<string, string>;
   onSave: (payload: Record<string, unknown>, nextStep?: number) => Promise<void>;
 }) {
+  const [activePage, setActivePage] = useState<1 | 2>(1);
   const [form, setForm] = useState({
     full_name: application.full_name ?? "",
     date_of_birth: application.date_of_birth ?? "",
@@ -46,9 +47,41 @@ export function PersonalStep({
       <CardHeader
         title="Step 1: Personal details"
         description="Enter your details exactly as printed on your PAN card. PolicyNest only stores the last 4 digits of Aadhaar."
+        action={
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">
+            <span>Page {activePage} of 2</span>
+          </div>
+        }
       />
+
+      {/* Sub-page Navigation Tabs (Workstream H) */}
+      <div className="flex border-b border-slate-100 bg-slate-50/50 px-5 pt-3 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setActivePage(1)}
+          className={`pb-2.5 px-3 border-b-2 transition ${
+            activePage === 1
+              ? "border-brand-700 text-brand-800 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Page 1 of 2: Name &amp; Identity
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivePage(2)}
+          className={`pb-2.5 px-3 border-b-2 transition ${
+            activePage === 2
+              ? "border-brand-700 text-brand-800 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Page 2 of 2: PAN &amp; Contact Details
+        </button>
+      </div>
+
       <form
-        className="space-y-5 px-5 py-5"
+        className="space-y-6 px-5 py-5"
         onSubmit={(e) => {
           e.preventDefault();
           void onSave(payload(), 2);
@@ -56,141 +89,175 @@ export function PersonalStep({
         noValidate
       >
         {error && <Alert tone="error">{error}</Alert>}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Full name (as on PAN)" htmlFor="p-name" error={fieldErrors.full_name}>
-            <Input
-              id="p-name"
-              value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              invalid={!!fieldErrors.full_name}
-              required
-            />
-          </Field>
-          <Field label="Father or spouse name" htmlFor="p-father" error={fieldErrors.father_or_spouse_name}>
-            <Input
-              id="p-father"
-              value={form.father_or_spouse_name}
-              onChange={(e) => setForm({ ...form, father_or_spouse_name: e.target.value })}
-              invalid={!!fieldErrors.father_or_spouse_name}
-              required
-            />
-          </Field>
-          <Field label="Date of birth" htmlFor="p-dob" error={fieldErrors.date_of_birth}>
-            <Input
-              id="p-dob"
-              type="date"
-              value={form.date_of_birth}
-              onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
-              invalid={!!fieldErrors.date_of_birth}
-              required
-            />
-          </Field>
-          <Field label="Gender" htmlFor="p-gender" error={fieldErrors.gender}>
-            <Select
-              id="p-gender"
-              value={form.gender}
-              onChange={(e) => setForm({ ...form, gender: e.target.value as GenderType | "" })}
-            >
-              <option value="">Select gender</option>
-              <option value="FEMALE">Female</option>
-              <option value="MALE">Male</option>
-              <option value="OTHER">Other</option>
-              <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
-            </Select>
-          </Field>
-          <Field label="Mobile number" htmlFor="p-mobile" error={fieldErrors.mobile} hint="10-digit Indian mobile number">
-            <Input
-              id="p-mobile"
-              type="tel"
-              value={form.mobile}
-              onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-              invalid={!!fieldErrors.mobile}
-              required
-            />
-          </Field>
-          <Field label="Email address" htmlFor="p-email" error={fieldErrors.email}>
-            <Input
-              id="p-email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              invalid={!!fieldErrors.email}
-              required
-            />
-          </Field>
-          <Field
-            label="PAN number"
-            htmlFor="p-pan"
-            error={fieldErrors.pan_number}
-            hint={
-              form.pan_number.length === 10 ? (
-                /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan_number) ? (
-                  form.pan_number[3] === "P" ? (
-                    <span className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-emerald-700">
-                        ✓ CBDT Master Structure: Valid Individual PAN (4th character &apos;P&apos; verified)
+
+        {/* Page 1: Name and Date of Birth */}
+        <div className={`space-y-4 rounded-xl border border-slate-200/90 bg-white p-4 ${activePage === 1 ? "ring-2 ring-brand-500/20" : ""}`}>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Page 1 of 2: Legal Name &amp; Date of Birth
+            </h3>
+            <span className="text-[11px] text-slate-500">Identity Record</span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name (as on PAN)" htmlFor="p-name" error={fieldErrors.full_name}>
+              <Input
+                id="p-name"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                invalid={!!fieldErrors.full_name}
+                required
+              />
+            </Field>
+
+            <Field label="Father or spouse name" htmlFor="p-father" error={fieldErrors.father_or_spouse_name}>
+              <Input
+                id="p-father"
+                value={form.father_or_spouse_name}
+                onChange={(e) => setForm({ ...form, father_or_spouse_name: e.target.value })}
+                invalid={!!fieldErrors.father_or_spouse_name}
+                required
+              />
+            </Field>
+
+            <Field label="Date of birth" htmlFor="p-dob" error={fieldErrors.date_of_birth}>
+              <Input
+                id="p-dob"
+                type="date"
+                value={form.date_of_birth}
+                onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+                invalid={!!fieldErrors.date_of_birth}
+                required
+              />
+            </Field>
+
+            <Field label="Gender" htmlFor="p-gender" error={fieldErrors.gender}>
+              <Select
+                id="p-gender"
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value as GenderType | "" })}
+              >
+                <option value="">Select gender</option>
+                <option value="FEMALE">Female</option>
+                <option value="MALE">Male</option>
+                <option value="OTHER">Other</option>
+                <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+              </Select>
+            </Field>
+
+            <div className="sm:col-span-2">
+              <Field label="Preferred communication language" htmlFor="p-lang" error={fieldErrors.preferred_language}>
+                <Select
+                  id="p-lang"
+                  value={form.preferred_language}
+                  onChange={(e) => setForm({ ...form, preferred_language: e.target.value as LanguageCode })}
+                >
+                  <option value="EN">English</option>
+                  <option value="HI">Hindi (हिन्दी)</option>
+                </Select>
+              </Field>
+            </div>
+          </div>
+        </div>
+
+        {/* Page 2: Government IDs and Contact */}
+        <div className={`space-y-4 rounded-xl border border-slate-200/90 bg-white p-4 ${activePage === 2 ? "ring-2 ring-brand-500/20" : ""}`}>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Page 2 of 2: Government PAN &amp; Contact Details
+            </h3>
+            <span className="text-[11px] text-slate-500">Statutory Tax &amp; Contact</span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="PAN number"
+              htmlFor="p-pan"
+              error={fieldErrors.pan_number}
+              hint={
+                form.pan_number.length === 10 ? (
+                  /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(form.pan_number) ? (
+                    form.pan_number[3] === "P" ? (
+                      <span className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-emerald-700">
+                          ✓ CBDT Master Structure: Valid Individual PAN (4th character &apos;P&apos; verified)
+                        </span>
+                        <span className="text-[11px] font-medium text-blue-700">
+                          ⚡ IRDAI Central Registry (IIB): Exclusivity confirmed · No active appointment with competing insurers
+                        </span>
                       </span>
-                      <span className="text-[11px] font-medium text-blue-700">
-                        ⚡ IRDAI Central Registry (IIB): Exclusivity confirmed · No active appointment with competing insurers
+                    ) : (
+                      <span className="font-semibold text-rose-600">
+                        ⚠️ 4th letter is &apos;{form.pan_number[3]}&apos; (Non-Individual). IRDAI requires an Individual PAN.
                       </span>
-                    </span>
+                    )
                   ) : (
-                    <span className="font-semibold text-rose-600">
-                      ⚠️ 4th letter is &apos;{form.pan_number[3]}&apos; (Non-Individual). IRDAI requires an Individual PAN.
-                    </span>
+                    <span className="text-rose-600">Invalid PAN format (expected AAAAA9999A)</span>
                   )
                 ) : (
-                  <span className="text-rose-600">Invalid PAN format (expected AAAAA9999A)</span>
+                  "10 alphanumeric characters (e.g. ABCDE1234F) · 4th character 'P' for Individual"
                 )
-              ) : (
-                "10 alphanumeric characters (e.g. ABCDE1234F) · 4th character 'P' for Individual"
-              )
-            }
-          >
-            <Input
-              id="p-pan"
-              value={form.pan_number}
-              maxLength={10}
-              className="uppercase"
-              onChange={(e) => setForm({ ...form, pan_number: e.target.value.toUpperCase() })}
-              invalid={!!fieldErrors.pan_number}
-              required
-            />
-          </Field>
-          <Field
-            label="Aadhaar (last 4 digits only)"
-            htmlFor="p-aadhaar"
-            error={fieldErrors.aadhaar_last4}
-            hint="UIDAI data minimisation: never enter all 12 digits."
-          >
-            <Input
-              id="p-aadhaar"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="e.g. 7890"
-              value={form.aadhaar_last4}
-              onChange={(e) => setForm({ ...form, aadhaar_last4: e.target.value })}
-              invalid={!!fieldErrors.aadhaar_last4}
-              required
-            />
-          </Field>
-          <Field label="Preferred communication language" htmlFor="p-lang" error={fieldErrors.preferred_language}>
-            <Select
-              id="p-lang"
-              value={form.preferred_language}
-              onChange={(e) => setForm({ ...form, preferred_language: e.target.value as LanguageCode })}
+              }
             >
-              <option value="EN">English</option>
-              <option value="HI">Hindi (हिन्दी)</option>
-            </Select>
-          </Field>
+              <Input
+                id="p-pan"
+                value={form.pan_number}
+                maxLength={10}
+                className="uppercase"
+                onChange={(e) => setForm({ ...form, pan_number: e.target.value.toUpperCase() })}
+                invalid={!!fieldErrors.pan_number}
+                required
+              />
+            </Field>
+
+            <Field
+              label="Aadhaar (last 4 digits only)"
+              htmlFor="p-aadhaar"
+              error={fieldErrors.aadhaar_last4}
+              hint="UIDAI data minimisation: never enter all 12 digits."
+            >
+              <Input
+                id="p-aadhaar"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="e.g. 7890"
+                value={form.aadhaar_last4}
+                onChange={(e) => setForm({ ...form, aadhaar_last4: e.target.value })}
+                invalid={!!fieldErrors.aadhaar_last4}
+                required
+              />
+            </Field>
+
+            <Field label="Mobile number" htmlFor="p-mobile" error={fieldErrors.mobile} hint="10-digit Indian mobile number">
+              <Input
+                id="p-mobile"
+                type="tel"
+                value={form.mobile}
+                onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+                invalid={!!fieldErrors.mobile}
+                required
+              />
+            </Field>
+
+            <Field label="Email address" htmlFor="p-email" error={fieldErrors.email}>
+              <Input
+                id="p-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                invalid={!!fieldErrors.email}
+                required
+              />
+            </Field>
+          </div>
         </div>
+
         <div className="flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-4">
           <Button type="button" variant="secondary" loading={saving} onClick={() => void onSave(payload(), 1)}>
             Save draft
           </Button>
           <Button type="submit" loading={saving}>
-            Save & continue
+            Save &amp; continue
           </Button>
         </div>
       </form>

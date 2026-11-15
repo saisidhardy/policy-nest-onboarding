@@ -39,19 +39,21 @@ export function OnboardingAssistantHUD({
   onOpenChat,
   onRaiseAppeal,
 }: OnboardingAssistantHUDProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    status !== "NEEDS_MORE_INFO" && status !== "REJECTED"
+  );
   const [speaking, setSpeaking] = useState(false);
   const [language, setLanguage] = useState<"EN" | "HI">("EN");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Map to the 5 Manual Stages
+  // Map to the 6 Plain-Language Applicant Journey Stages (Workstream F)
   const stages = [
-    { num: 1, label: "01 Upload", desc: "6 Clear Documents (7-day timer)", active: currentStep <= 6 && status === "DRAFT" },
-    { num: 2, label: "02 KYC Review", desc: "Instant Verification & Review", active: status === "SUBMITTED" || status === "IN_REVIEW" || status === "NEEDS_MORE_INFO" || status === "REJECTED" },
-    { num: 3, label: "03 15-Hr LMS", desc: "Mandatory IC-38 Modules", active: status === "KYC_APPROVED" || status === "TRAINING_IN_PROGRESS" },
-    { num: 4, label: "04 POSP Exam", desc: "Statutory Online Test", active: false },
-    { num: 5, label: "05 Certificate", desc: "Cryptographic Accreditation", active: status === "CERTIFIED" },
+    { num: 1, label: "01 Details", desc: "Personal, address & bank", active: currentStep < 5 && status === "DRAFT" },
+    { num: 2, label: "02 Documents", desc: "6 Required proofs", active: currentStep === 5 && status === "DRAFT" },
+    { num: 3, label: "03 Verification", desc: "Automated & reviewer checks", active: status === "SUBMITTED" || status === "IN_REVIEW" || status === "NEEDS_MORE_INFO" || status === "REJECTED" || status === "REWORK_SUBMITTED" },
+    { num: 4, label: "04 Training", desc: "15-Hour POSP learning", active: status === "KYC_APPROVED" || status === "TRAINING_IN_PROGRESS" },
+    { num: 5, label: "05 Exam & Cert", desc: "Online exam & appointment", active: status === "CERTIFIED" },
   ];
 
   // Visual Direction Guidance derived from Recovery & Quick-Start Manuals
@@ -164,10 +166,15 @@ export function OnboardingAssistantHUD({
   return (
     <aside
       aria-label="AI Onboarding Assistant HUD"
-      className="mb-6 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-900 to-brand-950 p-4 text-white shadow-xl shadow-slate-950/20"
+      className={clsx(
+        "mb-4 rounded-xl border transition-all duration-200",
+        collapsed
+          ? "border-slate-200 bg-slate-900/90 py-2.5 px-4 text-white shadow-sm"
+          : "border-slate-700 bg-gradient-to-br from-slate-900 via-slate-900 to-brand-950 p-4 text-white shadow-lg shadow-slate-950/15"
+      )}
     >
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+      <div className={clsx("flex flex-wrap items-center justify-between gap-3", !collapsed && "border-b border-slate-800 pb-3")}>
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
             <Bot className="h-4 w-4" />

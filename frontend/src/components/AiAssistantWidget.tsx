@@ -13,6 +13,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { fireConfetti } from "@/lib/confetti";
@@ -97,7 +98,30 @@ const MANUAL_SUGGESTED_PROMPTS = [
   },
 ];
 
+const CONTEXTUAL_PROMPTS: Record<string, { label: string; query: string }[]> = {
+  bank: [
+    { label: "🏦 Why account in my name?", query: "Why must the bank account be in my own name?" },
+    { label: "👥 Can I use a joint account?", query: "Can I use a joint account where I am first holder?" },
+    { label: "⚡ What is a penny-drop check?", query: "What is a penny-drop check and is ₹1 actually charged?" },
+    { label: "📄 Can I use a bank statement?", query: "Can I use a bank statement instead of a cancelled cheque?" },
+    { label: "🪪 PAN vs Bank name difference?", query: "What happens if my PAN name and bank account name differ slightly?" },
+  ],
+  documents: [
+    { label: "❌ Why was my image rejected?", query: "Why was my document image flagged and how do I fix it?" },
+    { label: "🪪 Which side of Aadhaar?", query: "Which side of Aadhaar is needed for front vs back?" },
+    { label: "📎 Can I upload a PDF?", query: "Can I upload a PDF document instead of photo?" },
+    { label: "👤 What happens in human review?", query: "What happens during human reviewer check and how long does it take?" },
+    { label: "🔒 Is my full Aadhaar stored?", query: "Is my full 12-digit Aadhaar number stored in the database?" },
+  ],
+  training: [
+    { label: "📚 15-Hour syllabus?", query: "What is covered in the 15-hour POSP IC-38 training?" },
+    { label: "📝 Exam passing score?", query: "How many questions are on the POSP exam and what score is needed to pass?" },
+    { label: "📜 Certificate issuance?", query: "When will my official digital POSP appointment certificate be issued?" },
+  ],
+};
+
 export function AiAssistantWidget() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
@@ -494,14 +518,19 @@ export function AiAssistantWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Manual Prompt Pills */}
+          {/* Quick Contextual & Manual Prompt Pills (Workstream M) */}
           <div className="px-4 py-2 border-t border-slate-800/60 bg-slate-950/40 flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {MANUAL_SUGGESTED_PROMPTS.map((p, i) => (
+            {(pathname?.includes("/training")
+              ? [...CONTEXTUAL_PROMPTS.training, ...MANUAL_SUGGESTED_PROMPTS]
+              : pathname?.includes("/onboarding")
+              ? [...CONTEXTUAL_PROMPTS.documents, ...CONTEXTUAL_PROMPTS.bank, ...MANUAL_SUGGESTED_PROMPTS]
+              : MANUAL_SUGGESTED_PROMPTS
+            ).map((p, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => handleSend(p.query)}
-                className="flex-shrink-0 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium transition border border-slate-700/60"
+                className="flex-shrink-0 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium transition border border-slate-700/60 whitespace-nowrap"
               >
                 {p.label}
               </button>

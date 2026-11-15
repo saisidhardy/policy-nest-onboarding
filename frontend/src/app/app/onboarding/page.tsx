@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RequirePermission } from "@/components/RequirePermission";
-import { Alert, Button, Card, CardHeader, PageHeader, Spinner } from "@/components/ui";
+import { BeforeYouStartGuide } from "@/components/onboarding/BeforeYouStartGuide";
+import { Alert, Button, Card, CardHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { REQUIRED_DOCUMENTS } from "@/lib/constants";
 import type { ApplicationDetail } from "@/lib/types";
 
 export default function OnboardingIndexPage() {
@@ -25,6 +25,7 @@ function OnboardingEntry() {
   const [current, setCurrent] = useState<ApplicationDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showPrepGuide] = useState(true);
 
   useEffect(() => {
     if (!me?.user.email_verified) {
@@ -34,6 +35,7 @@ function OnboardingEntry() {
     api<ApplicationDetail | null>("/applications/current").then(
       (app) => {
         if (app && (app.status === "DRAFT" || app.status === "NEEDS_MORE_INFO")) {
+          // Returning applicant bypasses prep screen directly into active draft
           router.replace(`/app/onboarding/${app.id}`);
           return;
         }
@@ -62,10 +64,6 @@ function OnboardingEntry() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="POSP Onboarding"
-        description="Complete your details and upload all 6 required documents to submit your application."
-      />
       {error && <Alert tone="error">{error}</Alert>}
 
       {!me?.user.email_verified ? (
@@ -87,18 +85,16 @@ function OnboardingEntry() {
             </Link>
           </div>
         </Card>
+      ) : showPrepGuide ? (
+        <BeforeYouStartGuide
+          onStartOrResume={() => {
+            void startNew();
+          }}
+        />
       ) : (
         <Card>
           <CardHeader title="Start a new onboarding application" description="Your draft saves automatically at every step so you can resume anytime." />
           <div className="space-y-5 px-5 py-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {REQUIRED_DOCUMENTS.map((doc) => (
-                <div key={doc.type} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-semibold text-slate-900">{doc.label}</p>
-                  <p className="mt-1 text-xs text-slate-600">{doc.description}</p>
-                </div>
-              ))}
-            </div>
             <Button onClick={startNew} loading={creating}>
               <PlayCircle className="h-4 w-4" /> Start onboarding application
             </Button>
