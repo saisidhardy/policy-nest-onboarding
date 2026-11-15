@@ -33,8 +33,11 @@ def clean_tables():
 
 def find_datasets() -> tuple[Path, Path]:
     repo_root = Path(__file__).resolve().parent.parent.parent
-    truth_path = repo_root / "docs" / "source_materials" / "04_DATASETS" / "application_truth.csv"
-    docs_path = repo_root / "docs" / "source_materials" / "04_DATASETS" / "documents.csv"
+    truth_path = repo_root / "backend" / "data" / "challenge_datasets" / "application_truth.csv"
+    docs_path = repo_root / "backend" / "data" / "challenge_datasets" / "documents.csv"
+    if not truth_path.exists() or not docs_path.exists():
+        truth_path = repo_root / "docs" / "source_materials" / "04_DATASETS" / "application_truth.csv"
+        docs_path = repo_root / "docs" / "source_materials" / "04_DATASETS" / "documents.csv"
     if not truth_path.exists() or not docs_path.exists():
         pytest.skip(f"Datasets not found at {truth_path} or {docs_path}")
     return truth_path, docs_path

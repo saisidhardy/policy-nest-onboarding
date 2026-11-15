@@ -3,6 +3,7 @@
 import { Building2, CheckCircle2, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import { Alert, Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
+import { lookupOfflineIfsc } from "@/lib/ifscDirectory";
 import type { AccountType, ApplicationDetail } from "@/lib/types";
 
 export function BankStep({
@@ -40,9 +41,19 @@ export function BankStep({
   const handleIfscLookup = async (rawCode: string) => {
     const code = rawCode.toUpperCase().trim();
     setForm((prev) => ({ ...prev, ifsc_code: code }));
+
+    // Instant zero-latency offline recognition (Task 3)
+    const offlineMatch = lookupOfflineIfsc(code);
+    if (offlineMatch) {
+      setForm((prev) => ({
+        ...prev,
+        bank_name: prev.bank_name || offlineMatch.bankName,
+      }));
+      setIfscNotice(`✓ Recognized Bank: ${offlineMatch.bankName} (${offlineMatch.category})`);
+    }
+
     if (code.length === 11 && /^[A-Z]{4}0[A-Z0-9]{6}$/.test(code)) {
       setIfscLoading(true);
-      setIfscNotice(null);
       try {
         const res = await fetch(`https://ifsc.razorpay.com/${code}`);
         if (res.ok) {
@@ -50,14 +61,14 @@ export function BankStep({
           if (data && data.BANK) {
             setForm((prev) => ({
               ...prev,
-              bank_name: prev.bank_name || data.BANK,
+              bank_name: data.BANK || prev.bank_name,
               branch_name: prev.branch_name || data.BRANCH || "",
             }));
-            setIfscNotice(`✓ RBI Directory Verified: ${data.BANK} (${data.BRANCH ?? "Main"})`);
+            setIfscNotice(`✓ RBI Directory Verified: ${data.BANK} (${data.BRANCH ?? "Main Branch"})`);
           }
         }
       } catch {
-        // Fallback silently if offline
+        // Fallback silently to offline match
       } finally {
         setIfscLoading(false);
       }

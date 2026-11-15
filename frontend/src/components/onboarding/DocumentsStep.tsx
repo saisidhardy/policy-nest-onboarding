@@ -19,7 +19,7 @@ import { extractAutofillFromReport } from "@/lib/autofill";
 import { REQUIRED_DOCUMENTS, formatBytes } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import { normalizeAndOptimizeImage } from "@/lib/imagePrep";
+import { computeFileSha256, normalizeAndOptimizeImage } from "@/lib/imagePrep";
 import type {
   ApplicationDetail,
   ApplicationDocument,
@@ -67,6 +67,7 @@ export function DocumentsStep({
   const [showHistory, setShowHistory] = useState(false);
   const [precheckLoading, setPrecheckLoading] = useState(false);
   const [precheck, setPrecheck] = useState<ApplicationVerificationReport | null>(null);
+  const [fileHashes, setFileHashes] = useState<Record<string, { docType: DocumentType; filename: string }>>({});
 
   const byType = new Map<DocumentType, ApplicationDocument>();
   for (const doc of application.documents) {
@@ -111,6 +112,16 @@ export function DocumentsStep({
   }
 
   async function uploadFile(docType: DocumentType, rawFile: File) {
+    // Cross-slot duplicate file prevention (Task 2)
+    const fileHash = await computeFileSha256(rawFile);
+    const existing = fileHashes[fileHash];
+    if (existing && existing.docType !== docType) {
+      const msg = `Duplicate Document Detected: This exact file was already used for "${existing.docType.replace(/_/g, " ")}". Under IRDAI KYC guidelines, each slot requires its specific authentic document.`;
+      setError(msg);
+      setSlotError({ docType, message: msg });
+      return;
+    }
+
     setBusyType(docType);
     setError(null);
     setSlotError(null);
@@ -136,6 +147,10 @@ export function DocumentsStep({
       const fd = new FormData();
       fd.append("file", prepared.file);
       const uploaded = await apiForm<ApplicationDocument>(`/applications/${application.id}/documents/${docType}`, fd);
+      setFileHashes((prev) => ({
+        ...prev,
+        [fileHash]: { docType, filename: rawFile.name },
+      }));
       setUploadPercent(100);
       await onReload();
       await loadVerification();

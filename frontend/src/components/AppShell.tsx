@@ -35,6 +35,7 @@ import { VerificationBanner } from "./VerificationBanner";
 import { LanguageToggle } from "./LanguageToggle";
 import { AiAssistantWidget } from "./AiAssistantWidget";
 import { CommandPalette } from "./CommandPalette";
+import { BenchmarkPlaygroundModal } from "./compliance/BenchmarkPlaygroundModal";
 import { useI18n } from "@/lib/i18n";
 
 export interface NavItem {
@@ -77,6 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showPlayground, setShowPlayground] = useState(false);
 
   const navLabels: Record<string, string> = {
     "/app": t.nav.overview,
@@ -192,6 +194,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <LanguageToggle />
         </div>
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => setShowPlayground(true)}
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-brand-200/90 bg-gradient-to-r from-brand-50 via-indigo-50/70 to-brand-50/40 px-3 py-2 text-xs font-semibold text-brand-900 shadow-2xs hover:border-brand-400 hover:shadow-xs transition-all"
+          >
+            <span className="flex items-center gap-2">
+              <BrainCircuit className="h-4 w-4 text-brand-700" />
+              <span>Table 6 Playground</span>
+            </span>
+            <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              T1–T10
+            </span>
+          </button>
+        </div>
         {nav}
         {userBlock}
       </aside>
@@ -200,6 +217,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Logo />
         </Link>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPlayground(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800"
+          >
+            <BrainCircuit className="h-3.5 w-3.5 text-brand-700" />
+            <span>T1–T10</span>
+          </button>
           <LanguageToggle />
           <button onClick={() => setOpen(true)} className="rounded p-2 text-slate-700 hover:bg-slate-100" aria-label="Open menu">
             <Menu className="h-5 w-5" />
@@ -236,6 +261,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       <CommandPalette />
       <AiAssistantWidget />
+      <BenchmarkPlaygroundModal open={showPlayground} onClose={() => setShowPlayground(false)} />
     </div>
   );
 }

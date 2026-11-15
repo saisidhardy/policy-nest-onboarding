@@ -1,0 +1,23 @@
+reviewer_id,team,tenure_months,shift,speed_index,loaded_cost_inr_per_hour,applications_handled_jan_sep
+OPS-01,Onboarding Ops North,27,11:00–20:00,1.08,380,121
+OPS-02,Onboarding Ops North,18,11:00–20:00,1.32,420,148
+OPS-03,Onboarding Ops North,19,13:00–22:00,0.88,420,139
+OPS-04,Onboarding Ops North,22,11:00–20:00,1.32,480,131
+OPS-05,Onboarding Ops North,37,09:00–18:00,0.97,450,150
+OPS-06,Onboarding Ops North,32,11:00–20:00,1.03,420,138
+OPS-07,Onboarding Ops North,20,09:00–18:00,1.26,380,134
+OPS-08,Onboarding Ops North,20,09:00–18:00,1.03,450,138
+OPS-09,Onboarding Ops North,10,09:00–18:00,1.1,480,122
+OPS-10,Onboarding Ops North,45,13:00–22:00,0.82,450,151
+OPS-11,Onboarding Ops North,44,09:00–18:00,1.21,420,125
+OPS-12,Onboarding Ops North,18,09:00–18:00,1.1,450,144
+OPS-13,Onboarding Ops South & West,35,13:00–22:00,0.98,450,146
+OPS-14,Onboarding Ops South & West,39,11:00–20:00,1.23,380,134
+OPS-15,Onboarding Ops South & West,40,13:00–22:00,0.97,420,141
+OPS-16,Onboarding Ops South & West,43,09:00–18:00,1.05,380,133
+OPS-17,Onboarding Ops South & West,25,11:00–20:00,0.87,380,149
+OPS-18,Onboarding Ops South & West,4,13:00–22:00,1.02,450,138
+OPS-19,Onboarding Ops South & West,6,11:00–20:00,0.91,420,141
+OPS-20,Onboarding Ops South & West,11,11:00–20:00,0.94,480,134
+OPS-21,Onboarding Ops South & West,6,11:00–20:00,1.21,450,119
+OPS-22,Onboarding Ops South & West,24,13:00–22:00,0.95,450,142

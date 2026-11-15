@@ -6,9 +6,12 @@ import {
   Clock,
   ExternalLink,
   GraduationCap,
+  Printer,
   RefreshCw,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -202,6 +205,22 @@ export function TrainingStatusPanel({
                     <p className="mt-1 text-xs text-slate-500">
                       Issued {formatDateTime(training.certified_at)} · Valid until {formatDateTime(training.certificate_valid_until)}
                     </p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/verify-certificate?number=${encodeURIComponent(training.certificate_number)}`}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 transition-colors"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                        Verify Cryptographic Seal
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <Printer className="h-3.5 w-3.5" /> Print / Save PDF
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <p className="mt-1 text-xs text-slate-500">

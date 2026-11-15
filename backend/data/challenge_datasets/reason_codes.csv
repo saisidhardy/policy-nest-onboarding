@@ -1,0 +1,15 @@
+reason_code,verdict_type,meaning
+IMAGE_BLURRY,REUPLOAD,Text not legible at normal zoom
+IMAGE_CROPPED,REUPLOAD,Part of the document is outside the frame
+IMAGE_GLARE,REUPLOAD,Light reflection hides a field
+PAN_FORMAT_INVALID,REJECT,PAN does not match AAAAA9999A
+PAN_NOT_INDIVIDUAL,REJECT,"4th character of PAN is not P (company, firm, trust etc.)"
+EDU_NOT_ELIGIBLE,REJECT,Class 10 not passed
+NAME_MISMATCH,REJECT,Different person's document
+NAME_SPELLING_VARIANT,NEEDS_INFO,"Same person, spelling differs; ask for corrected document or affidavit"
+DOB_MISMATCH,NEEDS_INFO,DOB differs between documents
+BANK_NAME_MISMATCH,NEEDS_INFO,Account not in applicant's own name
+FACE_MATCH_LOW,NEEDS_INFO,Selfie does not match PAN photo (score < 0.60)
+UNDERAGE,REJECT,Under 18 on application date
+ALREADY_REGISTERED,REJECT,PAN already registered as a POSP with another insurer or intermediary
+REVIEWER_DISCRETION,NEEDS_INFO,"Reviewer judgement, no standard code"

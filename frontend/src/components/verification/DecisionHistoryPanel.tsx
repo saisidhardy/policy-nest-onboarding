@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
+import { ConsolidatedNotificationCard } from "./ConsolidatedNotificationCard";
 import { api, ApiError } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type {
@@ -366,7 +367,15 @@ export function DecisionHistoryPanel({
               {notifNotice && <Alert tone="success">{notifNotice}</Alert>}
 
               {latest.rework_items.length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                <div className="space-y-4">
+                  <ConsolidatedNotificationCard
+                    candidateName="Applicant"
+                    referenceCode={summary.application_id.slice(0, 8).toUpperCase()}
+                    reworkItems={latest.rework_items}
+                    reuploadUrl={`${typeof window !== "undefined" ? window.location.origin : "https://policynest-frontend-production.up.railway.app"}/app/onboarding/${summary.application_id}?step=5`}
+                  />
+
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-950">
                       <AlertTriangle className="h-4 w-4 text-amber-700" />
@@ -416,6 +425,7 @@ export function DecisionHistoryPanel({
                     ))}
                   </div>
                 </div>
+              </div>
               )}
 
               {latest.risk_indicators.length > 0 && (
